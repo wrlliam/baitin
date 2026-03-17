@@ -1,0 +1,116 @@
+import type { Egg, Pet } from "./types";
+
+export const pets: Pet[] = [
+  {
+    id: "baby_turtle",
+    name: "Baby Turtle",
+    description: "A small turtle that brings good luck while fishing.",
+    rarity: "common",
+    emoji: "🐢",
+    buffs: [{ type: "luck_boost", value: 0.03 }],
+  },
+  {
+    id: "pelican",
+    name: "Pelican",
+    description: "A fishing companion that helps scoop up extra coins.",
+    rarity: "common",
+    emoji: "🐦",
+    buffs: [{ type: "coin_boost", value: 0.05 }],
+  },
+  {
+    id: "otter",
+    name: "Otter",
+    description: "A playful otter that speeds up your fishing rhythm.",
+    rarity: "uncommon",
+    emoji: "🦦",
+    buffs: [{ type: "cooldown_reduction", value: 0.1 }],
+  },
+  {
+    id: "wise_owl",
+    name: "Wise Owl",
+    description: "An owl that grants extra experience from every catch.",
+    rarity: "uncommon",
+    emoji: "🦉",
+    buffs: [{ type: "xp_boost", value: 0.1 }],
+  },
+  {
+    id: "golden_crab",
+    name: "Golden Crab",
+    description: "A shimmering crab that finds hidden coins in the sand.",
+    rarity: "rare",
+    emoji: "🦀",
+    buffs: [
+      { type: "coin_boost", value: 0.1 },
+      { type: "luck_boost", value: 0.05 },
+    ],
+  },
+  {
+    id: "mystic_jellyfish",
+    name: "Mystic Jellyfish",
+    description: "A bioluminescent jellyfish that boosts all abilities slightly.",
+    rarity: "rare",
+    emoji: "🪼",
+    buffs: [
+      { type: "xp_boost", value: 0.05 },
+      { type: "luck_boost", value: 0.05 },
+      { type: "cooldown_reduction", value: 0.05 },
+    ],
+  },
+  {
+    id: "dragon_seahorse",
+    name: "Dragon Seahorse",
+    description: "A legendary seahorse with dragon-like power.",
+    rarity: "epic",
+    emoji: "🐉",
+    buffs: [
+      { type: "xp_boost", value: 0.15 },
+      { type: "luck_boost", value: 0.1 },
+    ],
+  },
+  {
+    id: "kraken_hatchling",
+    name: "Kraken Hatchling",
+    description: "A baby kraken. Terrifyingly powerful fishing companion.",
+    rarity: "legendary",
+    emoji: "🦑",
+    buffs: [
+      { type: "xp_boost", value: 0.2 },
+      { type: "coin_boost", value: 0.15 },
+      { type: "luck_boost", value: 0.15 },
+      { type: "cooldown_reduction", value: 0.15 },
+    ],
+  },
+];
+
+export const eggs: Egg[] = [
+  {
+    id: "common_egg",
+    name: "Common Egg",
+    description: "A plain egg. Could contain a common or uncommon pet.",
+    price: 500,
+    category: "egg",
+    rarity: "common",
+    emoji: "🥚",
+    possiblePets: ["baby_turtle", "pelican", "otter", "wise_owl"],
+  },
+  {
+    id: "rare_egg",
+    name: "Rare Egg",
+    description: "A glowing egg with rare potential.",
+    price: 2000,
+    category: "egg",
+    rarity: "rare",
+    emoji: "🌟",
+    possiblePets: ["otter", "wise_owl", "golden_crab", "mystic_jellyfish"],
+  },
+  {
+    id: "mythic_egg",
+    name: "Mythic Egg",
+    description: "A legendary egg pulsing with mythical energy.",
+    price: 10000,
+    category: "egg",
+    rarity: "mythic",
+    emoji: "🔮",
+    possiblePets: ["golden_crab", "mystic_jellyfish", "dragon_seahorse", "kraken_hatchling"],
+  },
+];

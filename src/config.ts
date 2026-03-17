@@ -1,0 +1,42 @@
+export default {
+  support: "https://discord.gg/aTkjGak2ZM",
+  ids: {
+    dev: "1283484433390895215",
+  },
+  embed: {
+    defaultFooter: `djs-template • /help`,
+  },
+  timeout: {
+    customCommands: 2.5 * 1000, // 2.5 seconds
+    leveling: 6 * 1000, // 6 seconds
+  },
+  colors: {
+    default: "#2b7fff",
+    error: "#fb2c36",
+    success: "#00c951",
+    info: "#2b7fff",
+    warn: "#ff8904",
+  },
+  emojis: {
+    cross: "<:20943crossmark:1374441878942122044>",
+    tick: "<:37667checkmark:1374441901830176838>",
+    admin: "<:60849staff:1374441954770944061>",
+    mod: "<:60849staff:1374441954770944061>",
+    bot: "<:63972bot:1374441980309930116>",
+    dollar: "<:37667donator:1374441909862269128>",
+    owner: "<:48936owner:1374441942791749692>",
+    proSub: "<:1466vip:1374441835509841981>",
+    text: "<:5726artist:1374441853360930866>",
+    member: "<:7824member:1374441860717875270>",
+    levels: {
+      lvl_one: "<:75894level1:1374856079405617213>",
+      lvl_two: "<:49130level2:1374856093129244753>",
+      lvl_three: "<:3115level3:1374856103988560053>",
+      lvl_four: "<:69359level4:1374856113983590401>",
+      lvl_five: "<:56708level5:1374856122753880074>",
+      lvl_six: "<:8266level6:1374856148167032882>",
+      lvl_seven: "<:90891level7:1374856068882239569>",
+      lvl_eight: "<:32632level8:1374856130936832031>",
+    },
+  },
+} as const;
