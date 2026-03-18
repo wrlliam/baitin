@@ -121,6 +121,7 @@ export default {
         }),
       ).catch(() => {});
     } else if(interaction.isButton()) {
+      // Allow public buttons without user ID
       if(interaction.customId === "welcome_get_started") {
         try {
           return await app.commands.get("getting-started")?.run({
@@ -131,6 +132,18 @@ export default {
           });
         } catch (e) {
           err(`Button welcome_get_started failed: ${e}`, 0);
+        }
+      }
+
+      // Check if button has a user ID appended (format: {action}_{userId})
+      const userIdMatch = interaction.customId.match(/_(\d+)$/);
+      if (userIdMatch) {
+        const buttonCreatorId = userIdMatch[1];
+        if (interaction.user.id !== buttonCreatorId) {
+          return interaction.reply({
+            content: `${config.emojis.cross} You don't have permission to use this button.`,
+            flags: MessageFlags.Ephemeral,
+          });
         }
       }
     }

@@ -9,6 +9,7 @@ export default {
   description: "Echoes the provided message.",
   usage: ["/echo [message]"],
   type: ApplicationCommandType.ChatInput,
+  defer: "none",
   options: [
     {
       name: "message",

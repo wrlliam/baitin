@@ -9,20 +9,105 @@ import {
   placeBid,
   cancelListing,
   getListings,
+  getListingCount,
   getActiveListingCount,
   canAuction,
 } from "@/modules/fishing/market";
 import {
+  ActionRowBuilder,
   ApplicationCommandOptionType,
   ApplicationCommandType,
-  MessageFlags,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
+
+const PAGE_SIZE = 5;
+
+const FILTER_CHOICES = [
+  { label: "All", value: "all", emoji: "📦" },
+  { label: "Fish", value: "fish", emoji: "🐟" },
+  { label: "Junk", value: "junk", emoji: "🗑️" },
+  { label: "Bait", value: "bait", emoji: "🪱" },
+  { label: "Rod", value: "rod", emoji: "🎣" },
+] as const;
+
+async function buildBrowsePage(page: number, category?: string) {
+  const [listings, total] = await Promise.all([
+    getListings({ category, page, pageSize: PAGE_SIZE }),
+    getListingCount({ category }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const catStr = category ?? "all";
+
+  const embed = ui()
+    .color(config.colors.default)
+    .title("📦 Market Listings")
+    .text(
+      total === 0
+        ? "No listings found."
+        : `**${total}** listing${total !== 1 ? "s" : ""} available`,
+    );
+
+  if (listings.length > 0) {
+    embed.divider();
+    for (const l of listings) {
+      const item = allItems.get(l.itemId);
+      const itemLabel = item
+        ? `${item.emoji} **${item.name}** ×${l.quantity}`
+        : `\`${l.itemId}\` ×${l.quantity}`;
+      const priceLabel = l.isAuction
+        ? `Auction — top bid: ${config.emojis.coin} ${(l.highestBid ?? 0).toLocaleString()} · min: ${l.pricePerUnit.toLocaleString()}`
+        : `${config.emojis.coin} ${l.pricePerUnit.toLocaleString()}/ea`;
+
+      const btn = l.isAuction
+        ? ui.btn("🔨 Bid", `mkt:bid:${l.id}`, ButtonStyle.Primary)
+        : ui.btn("💰 Buy", `mkt:buy:${l.id}`, ButtonStyle.Success);
+
+      embed.section(`${itemLabel}\n-# ${priceLabel}`, btn);
+    }
+  }
+
+  const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`mkt:nav:${page - 1}:${catStr}`)
+      .setLabel("◀ Prev")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 1),
+    new ButtonBuilder()
+      .setCustomId("mkt:page_info")
+      .setLabel(`Page ${page}/${totalPages}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId(`mkt:nav:${page + 1}:${catStr}`)
+      .setLabel("Next ▶")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages),
+  );
+
+  const filterRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    FILTER_CHOICES.map(({ label, value, emoji }) =>
+      new ButtonBuilder()
+        .setCustomId(`mkt:filter:${value}`)
+        .setLabel(label)
+        .setEmoji(emoji)
+        .setStyle(value === catStr ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    ),
+  );
+
+  return { embed, navRow, filterRow };
+}
 
 export default {
   name: "market",
   description: "Trade items with other players.",
   type: ApplicationCommandType.ChatInput,
-  usage: ["/market browse", "/market list", "/market bid", "/market cancel"],
+  usage: ["/market browse", "/market list", "/market cancel"],
   options: [
     {
       name: "browse",
@@ -43,7 +128,7 @@ export default {
         },
         {
           name: "page",
-          description: "Page number.",
+          description: "Starting page number.",
           type: ApplicationCommandOptionType.Integer,
           required: false,
           minValue: 1,
@@ -93,26 +178,6 @@ export default {
       ],
     },
     {
-      name: "bid",
-      description: "Place a bid on an auction.",
-      type: ApplicationCommandOptionType.Subcommand,
-      options: [
-        {
-          name: "listing_id",
-          description: "The listing ID to bid on.",
-          type: ApplicationCommandOptionType.String,
-          required: true,
-        },
-        {
-          name: "amount",
-          description: "Your bid amount.",
-          type: ApplicationCommandOptionType.Integer,
-          required: true,
-          minValue: 1,
-        },
-      ],
-    },
-    {
       name: "cancel",
       description: "Cancel one of your listings.",
       type: ApplicationCommandOptionType.Subcommand,
@@ -147,40 +212,107 @@ export default {
         .slice(0, 25) as { name: string; value: string }[],
     );
   },
-  run: async ({ args, client, ctx }) => {
+  run: async ({ args, ctx }) => {
     const sub = args.getSubcommand();
 
     if (sub === "browse") {
-      const category = args.getString("filter") ?? undefined;
-      const page = args.getInteger("page") ?? 1;
-      const listings = await getListings({ category, page, pageSize: 10 });
+      await ctx.deferReply();
+      const categoryArg = args.getString("filter") ?? undefined;
+      const pageArg = args.getInteger("page") ?? 1;
+      let curPage = pageArg;
+      let curCategory = categoryArg;
 
-      if (listings.length === 0) {
-        return ctx.editReply({ content: "No listings found." });
-      }
+      const { embed, navRow, filterRow } = await buildBrowsePage(curPage, curCategory);
+      const message = await ctx.editReply(embed.build({ rows: [navRow, filterRow] }) as any);
 
-      const lines = listings.map((l) => {
-        const item = allItems.get(l.itemId);
-        const label = item
-          ? `${item.emoji} ${item.name} ×${l.quantity}`
-          : `${l.itemId} ×${l.quantity}`;
-        const priceLabel = l.isAuction
-          ? `Auction — highest bid: ${config.emojis.coin} ${(l.highestBid ?? 0).toLocaleString()}`
-          : `${config.emojis.coin} ${l.pricePerUnit.toLocaleString()}/ea`;
-        return `\`${l.id.slice(0, 8)}\` ${label} — ${priceLabel}`;
+      const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 5 * 60 * 1000,
       });
 
-      return ctx.editReply(
-        ui()
-          .color(config.colors.default)
-          .title("📦 Market Listings")
-          .body(lines.join("\n"))
-          .footer(
-            `Page ${page} • Use listing ID with /market bid or /market cancel`,
-          )
-          .build() as any,
-      );
+      collector.on("collect", async (i) => {
+        const parts = i.customId.split(":");
+        const action = parts[1];
+
+        if (action === "nav") {
+          if (i.user.id !== ctx.user.id) return i.deferUpdate();
+          curPage = parseInt(parts[2], 10);
+          curCategory = parts[3] === "all" ? undefined : parts[3];
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          return i.update(e.build({ rows: [nr, fr] }) as any);
+        }
+
+        if (action === "filter") {
+          if (i.user.id !== ctx.user.id) return i.deferUpdate();
+          curCategory = parts[2] === "all" ? undefined : parts[2];
+          curPage = 1;
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          return i.update(e.build({ rows: [nr, fr] }) as any);
+        }
+
+        if (action === "buy") {
+          const listingId = parts[2];
+          const result = await buyListing(i.user.id, listingId);
+          if (!result.success) {
+            return i.reply({ content: `${config.emojis.cross} ${result.error}`, ephemeral: true });
+          }
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          return i.update(e.build({ rows: [nr, fr] }) as any);
+        }
+
+        if (action === "bid") {
+          const listingId = parts[2];
+          const modal = new ModalBuilder()
+            .setCustomId(`mkt:bidmodal:${listingId}`)
+            .setTitle("Place a Bid");
+          const amountInput = new TextInputBuilder()
+            .setCustomId("amount")
+            .setLabel("Your bid amount (coins)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(10);
+          modal.addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput),
+          );
+          await i.showModal(modal);
+
+          try {
+            const modalI = await i.awaitModalSubmit({ time: 60 * 1000 });
+            const amount = parseInt(modalI.fields.getTextInputValue("amount").trim(), 10);
+            if (isNaN(amount) || amount < 1) {
+              await modalI.reply({ content: `${config.emojis.cross} Invalid bid amount.`, ephemeral: true });
+              return;
+            }
+            const result = await placeBid(i.user.id, listingId, amount);
+            if (!result.success) {
+              await modalI.reply({ content: `${config.emojis.cross} ${result.error}`, ephemeral: true });
+            } else {
+              await modalI.reply({
+                content: `${config.emojis.tick} Bid of **${amount.toLocaleString()}** ${config.emojis.coin} placed!`,
+                ephemeral: true,
+              });
+              const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+              await message.edit(e.build({ rows: [nr, fr] }) as any);
+            }
+          } catch {
+            // Modal timed out
+          }
+          return;
+        }
+
+        await i.deferUpdate();
+      });
+
+      collector.on("end", async () => {
+        try { await message.edit({ components: [] }); } catch {}
+      });
+
+      return;
     }
+
+    // Non-browse subcommands — ephemeral
+    await ctx.deferReply({ ephemeral: true });
 
     if (sub === "list") {
       const itemId = args.getString("item", true);
@@ -204,9 +336,7 @@ export default {
 
       const item = allItems.get(itemId);
       if (!item)
-        return ctx.editReply({
-          content: `${config.emojis.cross} Unknown item.`,
-        });
+        return ctx.editReply({ content: `${config.emojis.cross} Unknown item.` });
 
       const durationMs = isAuction ? durationHours * 60 * 60 * 1000 : undefined;
       const result = await createListing(
@@ -220,9 +350,7 @@ export default {
       );
 
       if (!result.success) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} ${result.error}`,
-        });
+        return ctx.editReply({ content: `${config.emojis.cross} ${result.error}` });
       }
 
       return ctx.editReply(
@@ -237,30 +365,12 @@ export default {
       );
     }
 
-    if (sub === "bid") {
-      const listingId = args.getString("listing_id", true);
-      const amount = args.getInteger("amount", true);
-      const result = await placeBid(ctx.user.id, listingId, amount);
-
-      if (!result.success) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} ${result.error}`,
-        });
-      }
-
-      return ctx.editReply({
-        content: `${config.emojis.tick} Bid of **${amount.toLocaleString()}** ${config.emojis.coin} placed!`,
-      });
-    }
-
     if (sub === "cancel") {
       const listingId = args.getString("listing_id", true);
       const result = await cancelListing(ctx.user.id, listingId);
 
       if (!result.success) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} ${result.error}`,
-        });
+        return ctx.editReply({ content: `${config.emojis.cross} ${result.error}` });
       }
 
       return ctx.editReply({

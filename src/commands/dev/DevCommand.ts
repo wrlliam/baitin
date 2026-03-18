@@ -328,6 +328,7 @@ export default {
   description: "Developer-only admin tools.",
   type: ApplicationCommandType.ChatInput,
   devOnly: true,
+  defer: true,
   usage: [
     "/dev give-coins <user> <amount>",
     "/dev give-xp <user> <amount>",
@@ -620,17 +621,8 @@ export default {
     // ── Events ──
     {
       name: "event-start",
-      description: "Manually start a fishing event.",
+      description: "Manually start a fishing event (interactive menu).",
       type: ApplicationCommandOptionType.Subcommand,
-      options: [
-        {
-          name: "event",
-          description: "The event to start.",
-          type: ApplicationCommandOptionType.String,
-          required: true,
-          autocomplete: true,
-        },
-      ],
     },
     {
       name: "event-stop",

@@ -18,6 +18,7 @@ export default {
   description: "Equip a rod or bait.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/equip rod <name>", "/equip bait <name>"],
+  defer: true,
   options: [
     {
       name: "rod",

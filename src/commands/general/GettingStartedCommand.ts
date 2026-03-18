@@ -8,6 +8,7 @@ export default {
   description: "New to Baitin? Start here.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/getting-started"],
+  defer: "none",
   options: [],
   run: async ({ ctx }) => {
     return ctx.reply(

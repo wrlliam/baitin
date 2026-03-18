@@ -1,8 +1,7 @@
 import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
-import { ApplicationCommandType   MessageFlags,
-} from "discord.js";
+import { ApplicationCommandType } from "discord.js";
 
 export default {
   name: "serverinfo",

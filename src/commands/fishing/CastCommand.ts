@@ -63,15 +63,43 @@ export default {
     const castResult = ui()
       .color(config.colors.default)
       .title(`${fishedResult.item.emoji} ${fishedResult.item.name}`)
-      .body(
-        `*${fishedResult.item.description}*\n\nYou reeled in a **${fishedResult.item.name}** \`(${config.emojis.coin} ${fishedResult.item.price})\``,
+      .body(`*${fishedResult.item.description}*`)
+      .divider()
+      .text(
+        `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`
       )
       .divider()
-      .body(
-        `**Rarity:** ${capitalise(fishedResult.item.rarity)} • **Rod:** ${rodName} • **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` ${config.emojis.up_arrow} **Level ${fishedResult.newLevel}!**` : ""}${extraBody}`,
+      .text(
+        `${config.emojis.coin} **Coins:** +${fishedResult.coinsGained?.toLocaleString() ?? "0"}\n⭐ **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`
       )
-      .footer(tip())
-      .build();
-    await ctx.editReply({ content: "", ...castResult } as any);
+      .divider();
+
+    if (fishedResult.rodBroke) {
+      castResult.text(
+        "⚠️ **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod."
+      ).divider();
+    }
+
+    if (fishedResult.streakBonus && fishedResult.streakDay) {
+      const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
+      castResult.text(
+        `🔥 **${fishedResult.streakDay}-day Streak!** +${bonusPct}% XP & coins bonus.`
+      ).divider();
+    }
+
+    if (fishedResult.newAchievements && fishedResult.newAchievements.length > 0) {
+      const achLines = fishedResult.newAchievements
+        .map((a) => `${a.emoji} **${a.name}**\n-# ${a.description}`)
+        .join("\n");
+      castResult
+        .text(`🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`)
+        .divider()
+        .text(achLines)
+        .divider();
+    }
+
+    castResult.footer(tip());
+
+    await ctx.editReply({ content: "", ...castResult.build() } as any);
   },
 } as Command;

@@ -37,6 +37,7 @@ export default {
   description: "Ask the magic 8-ball a question.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/8ball <question>"],
+  defer: "none",
   options: [
     {
       name: "question",

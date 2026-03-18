@@ -21,6 +21,7 @@ export default {
     "/settings hut-notifications <on|off>",
     "/settings event-notifications <on|off>",
   ],
+  defer: true,
   options: [
     {
       name: "leaderboard",

@@ -35,7 +35,7 @@ const RARITY_SYMBOLS: Record<string, string> = {
 
 const ITEMS_PER_PAGE = 5;
 
-function buildShopPayload(category: ShopCategory, entries: ShopEntry[], page: number) {
+function buildShopPayload(category: ShopCategory, entries: ShopEntry[], page: number, userId: string = "") {
   const start = page * ITEMS_PER_PAGE;
   const pageEntries = entries.slice(start, start + ITEMS_PER_PAGE);
   const totalPages = Math.max(1, Math.ceil(entries.length / ITEMS_PER_PAGE));
@@ -58,7 +58,7 @@ function buildShopPayload(category: ShopCategory, entries: ShopEntry[], page: nu
           `${e.item.emoji} ${e.item.name} — ${e.buyPrice.toLocaleString()} ${config.emojis.coin}`,
           `${e.item.description}\n-# ${symbol} ${e.item.rarity} · ${stockLabel}`,
           new ButtonBuilder()
-            .setCustomId(`shop_buy_${e.item.id}`)
+            .setCustomId(`shop_buy_${e.item.id}_${userId}`)
             .setLabel("Buy")
             .setStyle(e.stock === 0 ? ButtonStyle.Secondary : ButtonStyle.Primary)
             .setDisabled(e.stock === 0),
@@ -71,7 +71,7 @@ function buildShopPayload(category: ShopCategory, entries: ShopEntry[], page: nu
 
   const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId("shop_cat")
+      .setCustomId(`shop_cat_${userId}`)
       .setPlaceholder("Select a category")
       .addOptions(
         SHOP_CATEGORIES.map((cat) =>
@@ -85,12 +85,12 @@ function buildShopPayload(category: ShopCategory, entries: ShopEntry[], page: nu
 
   const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId("shop_prev")
+      .setCustomId(`shop_prev_${userId}`)
       .setLabel("◄")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page === 0),
     new ButtonBuilder()
-      .setCustomId("shop_next")
+      .setCustomId(`shop_next_${userId}`)
       .setLabel("►")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages - 1),
@@ -111,7 +111,7 @@ export default {
     let page = 0;
     let entries = await getShopCategory(category);
 
-    const message = await ctx.editReply(buildShopPayload(category, entries, page) as any);
+    const message = await ctx.editReply(buildShopPayload(category, entries, page, ctx.user.id) as any);
 
     const collector = message.createMessageComponentCollector({
       filter: (i) => i.user.id === ctx.user.id,
@@ -121,26 +121,26 @@ export default {
     collector.on("collect", async (interaction) => {
       if (
         interaction.componentType === ComponentType.StringSelect &&
-        interaction.customId === "shop_cat"
+        interaction.customId.startsWith("shop_cat_")
       ) {
         category = interaction.values[0] as ShopCategory;
         page = 0;
         entries = await getShopCategory(category);
-        await interaction.update(buildShopPayload(category, entries, page) as any);
+        await interaction.update(buildShopPayload(category, entries, page, ctx.user.id) as any);
         return;
       }
 
       if (interaction.componentType === ComponentType.Button) {
         if (interaction.customId === "shop_prev") {
           page = Math.max(0, page - 1);
-          await interaction.update(buildShopPayload(category, entries, page) as any);
+          await interaction.update(buildShopPayload(category, entries, page, ctx.user.id) as any);
           return;
         }
 
         if (interaction.customId === "shop_next") {
           const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
           page = Math.min(totalPages - 1, page + 1);
-          await interaction.update(buildShopPayload(category, entries, page) as any);
+          await interaction.update(buildShopPayload(category, entries, page, ctx.user.id) as any);
           return;
         }
 
@@ -252,7 +252,7 @@ export default {
           }
 
           entries = await getShopCategory(category);
-          await message.edit(buildShopPayload(category, entries, page) as any);
+          await message.edit(buildShopPayload(category, entries, page, ctx.user.id) as any);
 
           if (totalBought === 0) {
             await modalI.reply({

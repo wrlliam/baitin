@@ -9,6 +9,7 @@ export default {
   description: "Get a random fishing tip.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/tip"],
+  defer: "none",
   options: [],
   run: async ({ ctx }) => {
     await ctx.reply(

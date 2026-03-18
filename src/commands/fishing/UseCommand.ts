@@ -19,6 +19,7 @@ export default {
   description: "Use a potion from your sack.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/use <potion>"],
+  defer: true,
   options: [
     {
       name: "potion",

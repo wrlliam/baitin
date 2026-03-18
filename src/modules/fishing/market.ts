@@ -187,6 +187,16 @@ export async function getListings(filters?: { category?: string; status?: string
   return rows;
 }
 
+export async function getListingCount(filters?: { category?: string; status?: string }): Promise<number> {
+  const status = filters?.status ?? "active";
+  const conditions = [eq(marketListing.status, status)];
+  if (filters?.category) {
+    conditions.push(eq(marketListing.itemType, filters.category));
+  }
+  const result = await db.select({ value: count() }).from(marketListing).where(and(...conditions));
+  return result[0]?.value ?? 0;
+}
+
 export async function getActiveListingCount(sellerId: string): Promise<number> {
   const result = await db
     .select({ value: count() })

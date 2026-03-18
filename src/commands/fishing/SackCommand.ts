@@ -117,7 +117,7 @@ function buildInventoryContainer(
       builder.section(
         `${item.emoji} **${item.name}**\n-# ×${row.quantity} · ${item.rarity}`,
         new ButtonBuilder()
-          .setCustomId(`sack_sell_${row.itemId}`)
+          .setCustomId(`sack_sell_${row.itemId}_${ctx.user.id}`)
           .setLabel(`${sellPrice} ${config.emojis.coin}`)
           .setStyle(ButtonStyle.Danger),
       );
@@ -198,10 +198,10 @@ export default {
         if (
           interaction.componentType === ComponentType.Button &&
           interaction.customId.startsWith("sack_sell_") &&
-          interaction.customId !== "sack_sell_1" &&
-          interaction.customId !== "sack_sell_all"
+          !interaction.customId.match(/_(?:1|all)_\d+$/)
         ) {
-          selectedItemId = interaction.customId.replace("sack_sell_", "");
+          // Extract item ID from: sack_sell_{itemId}_{userId}
+          selectedItemId = interaction.customId.replace(/_\d+$/, "").replace("sack_sell_", "");
           const itemRow = (await getInventory(ctx.user.id)).find(
             (r) => r.itemId === selectedItemId,
           );
@@ -240,15 +240,15 @@ export default {
 
           const sellRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
-              .setCustomId("sack_sell_1")
+              .setCustomId(`sack_sell_1_${ctx.user.id}`)
               .setLabel("Sell 1")
               .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
-              .setCustomId("sack_sell_all")
+              .setCustomId(`sack_sell_all_${ctx.user.id}`)
               .setLabel(`Sell All ×${itemRow.quantity}`)
               .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
-              .setCustomId("sack_back")
+              .setCustomId(`sack_back_${ctx.user.id}`)
               .setLabel("◄ Back")
               .setStyle(ButtonStyle.Secondary),
           );
@@ -261,7 +261,7 @@ export default {
         }
 
         if (interaction.componentType === ComponentType.Button) {
-          if (interaction.customId === "sack_back") {
+          if (interaction.customId.startsWith("sack_back_")) {
             selectedItemId = null;
             const freshInv = await getInventory(ctx.user.id);
             const freshUsed = await getItemCount(ctx.user.id);
@@ -294,8 +294,8 @@ export default {
           }
 
           if (
-            (interaction.customId === "sack_sell_1" ||
-              interaction.customId === "sack_sell_all") &&
+            (interaction.customId.startsWith("sack_sell_1_") ||
+              interaction.customId.startsWith("sack_sell_all_")) &&
             selectedItemId
           ) {
             const itemRow = (await getInventory(ctx.user.id)).find(
@@ -358,15 +358,15 @@ export default {
                 const sellRow =
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
                     new ButtonBuilder()
-                      .setCustomId("sack_sell_1")
+                      .setCustomId(`sack_sell_1_${ctx.user.id}`)
                       .setLabel("Sell 1")
                       .setStyle(ButtonStyle.Danger),
                     new ButtonBuilder()
-                      .setCustomId("sack_sell_all")
+                      .setCustomId(`sack_sell_all_${ctx.user.id}`)
                       .setLabel(`Sell All ×${stillOwned.quantity}`)
                       .setStyle(ButtonStyle.Danger),
                     new ButtonBuilder()
-                      .setCustomId("sack_back")
+                      .setCustomId(`sack_back_${ctx.user.id}`)
                       .setLabel("◄ Back")
                       .setStyle(ButtonStyle.Secondary),
                   );

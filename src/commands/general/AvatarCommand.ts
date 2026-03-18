@@ -13,6 +13,7 @@ export default {
   description: "Display a user's avatar.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/avatar", "/avatar [user]"],
+  defer: "none",
   options: [
     {
       name: "user",

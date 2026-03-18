@@ -3,11 +3,10 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, getOrCreateProfile } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
-import { ApplicationCommandType   MessageFlags,
-} from "discord.js";
+import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COOLDOWN_SECS = 604800; // 7 days
-const BASE_REWARD = 5000;
+const BASE_REWARD = 2500;
 const LEVEL_BONUS = 150;
 
 export default {
@@ -17,7 +16,6 @@ export default {
   usage: ["/weekly"],
   options: [],
   run: async ({ ctx }) => {
-
     const cooldown = await checkCooldown(ctx.user.id, "weekly");
     if (!cooldown.ok) {
       return ctx.editReply(

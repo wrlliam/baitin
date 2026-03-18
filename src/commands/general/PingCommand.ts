@@ -8,6 +8,7 @@ export default {
   description: "Check the bot's latency.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/ping"],
+  defer: "none",
   options: [],
   run: async ({ client, ctx }) => {
     const { resource } = await ctx.reply({

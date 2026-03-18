@@ -118,6 +118,7 @@ export default {
   description: "Opens the Baitin Command Center.",
   usage: ["/help", "/help [command]"],
   type: ApplicationCommandType.ChatInput,
+  defer: "none",
   options: [
     {
       name: "command",
