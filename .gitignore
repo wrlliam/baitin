@@ -42,3 +42,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 drizzle
 db.sqlite
+
+CLAUDE.md
+
+/.claude
+/.claude-flow
+/.swarm

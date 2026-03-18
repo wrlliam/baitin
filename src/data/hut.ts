@@ -17,7 +17,7 @@ export const hutLuckUpgrades: HutUpgrade[] = [
 ];
 
 export const hutInventoryUpgrades: HutUpgrade[] = [
-  { level: 1, cost: 0, capacity: 10 },
+  { level: 1, cost: 0, capacity: 12 },
   { level: 2, cost: 1500, capacity: 20 },
   { level: 3, cost: 5000, capacity: 35 },
   { level: 4, cost: 15000, capacity: 50 },

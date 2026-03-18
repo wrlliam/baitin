@@ -1,6 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
+  PermissionFlagsBits,
   Partials,
   REST,
   Routes,
@@ -74,7 +75,16 @@ export default class CoreBot extends Client {
           ((filePwd as string).split("/") as string[])[0] as string
         ).toLowerCase(),
       });
-      commandList.push(data);
+
+      const registrationData: any = { ...data };
+      if (data.adminOnly) {
+        registrationData.defaultMemberPermissions = PermissionFlagsBits.Administrator.toString();
+      } else if (data.devOnly) {
+        // Hide from everyone by default; dev check is still enforced in InteractionCreateEvent
+        registrationData.defaultMemberPermissions = "0";
+      }
+
+      commandList.push(registrationData);
     }
 
 

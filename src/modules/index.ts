@@ -1,11 +1,11 @@
 import {
   InteractionReplyOptions,
   InteractionResponse,
-  Message,
+  MessageFlags,
   MessagePayload,
-  resolveColor,
 } from "discord.js";
-import { defaultEmbeds, Embed } from "@/core/Embed";
+import { defaultEmbeds } from "@/core/Embed";
+import { errorMsg } from "@/ui";
 import config from "../config";
 import { Command } from "../core/typings";
 import CoreBot from "../core/Core";
@@ -27,27 +27,29 @@ export abstract class Module {
   }
 
   public valid(cases: ModuleBooleanFn[]): ModuleValidation {
-    return (cmd: Command, client: CoreBot) => ({
-      value: false,
-      response: {
-        flags: ["Ephemeral"],
-        embeds: [defaultEmbeds["missing-values"](cmd, client)],
-      },
-    });
+    return (cmd: Command, client: CoreBot) => {
+      const payload = defaultEmbeds["missing-values"](cmd, client);
+      return {
+        value: false,
+        response: {
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+          components: payload.components,
+        } as any,
+      };
+    };
   }
 
   public async logic(
     data: any
   ): Promise<InteractionReplyOptions | MessagePayload> {
+    const payload = errorMsg(
+      "Missing Logic",
+      `${config.emojis.cross} It appears that this command is missing its logic? Please try again later.`,
+    );
     return {
-      embeds: [
-        new Embed({
-          title: "Missing Logic",
-          color: resolveColor(config.colors.error),
-          description: `${config.emojis.cross} It appears that this command is missing its logic? Please try again later.`,
-        }),
-      ],
-    };
+      flags: MessageFlags.IsComponentsV2,
+      components: payload.components,
+    } as any;
   }
 }
 

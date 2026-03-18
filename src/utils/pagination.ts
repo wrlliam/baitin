@@ -1,10 +1,9 @@
 import { ExtendedInteraction } from "@/core/typings";
+import { UIPayload } from "@/ui";
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType,
-  EmbedBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ChatInputCommandInteraction,
@@ -14,7 +13,7 @@ import {
 } from "discord.js";
 
 export interface PaginationPage {
-  embed: EmbedBuilder | any;
+  payload: UIPayload;
   label?: string;
   description?: string;
   emoji?: string;
@@ -26,7 +25,7 @@ export async function paginate(
     | ChatInputCommandInteraction
     | RepliableInteraction,
   pages: PaginationPage[],
-  time: number = 60000, //  60 seconds
+  time: number = 60000,
 ) {
   if (!pages || pages.length === 0)
     throw new Error("Pages array cannot be empty.");
@@ -34,7 +33,7 @@ export async function paginate(
   let currentPage = 0;
   const hasLabels = pages.some((page) => page.label !== undefined);
 
-  const getComponents = () => {
+  const getNavRows = (): ActionRowBuilder<any>[] => {
     const rows: ActionRowBuilder<any>[] = [];
 
     const atStart = currentPage === 0;
@@ -81,28 +80,34 @@ export async function paginate(
           }),
         );
 
-      const selectRow =
+      rows.push(
         new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
           selectMenu,
-        );
-      rows.push(selectRow);
+        ),
+      );
     }
 
     rows.push(buttonRow);
     return rows;
   };
 
-  const initialPayload = {
-    embeds: [pages[currentPage].embed],
-    components: getComponents(),
-    withResponse: true,
+  const buildReplyPayload = () => {
+    const navRows = getNavRows();
+    const page = pages[currentPage].payload;
+    return {
+      flags: page.flags,
+      components: [...page.components, ...navRows],
+    };
   };
+
+  const initialPayload = buildReplyPayload();
 
   let message: Message;
   if (interaction.deferred || interaction.replied) {
-    message = (await interaction.editReply(initialPayload)) as Message;
+    message = (await interaction.editReply(initialPayload as any)) as Message;
   } else {
-    message = (await interaction.reply(initialPayload)) as unknown as Message;
+    await interaction.reply(initialPayload as any);
+    message = (await interaction.fetchReply()) as Message;
   }
 
   if (pages.length === 1) return;
@@ -137,20 +142,14 @@ export async function paginate(
       }
     }
 
-    await interaction.editReply({
-      embeds: [pages[currentPage].embed],
-      components: getComponents(),
-    });
-
+    await interaction.editReply(buildReplyPayload() as any);
     collector.resetTimer();
   });
 
   collector.on("end", async (_, reason) => {
     if (reason !== "messageDelete") {
       await interaction
-        .editReply({
-          components: [],
-        })
+        .editReply({ components: [] })
         .catch(() => null);
     }
   });

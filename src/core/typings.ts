@@ -17,7 +17,7 @@ export type Command = {
   usage: string[];
   category?: string;
   devOnly?: boolean;
-  autocomplete?: (opts: { ctx: AutocompleteInteraction; client: CoreBot }) => void;
+  autocomplete?: (opts: { ctx: AutocompleteInteraction; client: CoreBot }) => void | Promise<void>;
 } & ChatInputApplicationCommandData;
 
 export type CommandRunFn = (opts: CommandRunFnOpts) => void;

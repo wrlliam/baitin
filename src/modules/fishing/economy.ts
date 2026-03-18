@@ -28,6 +28,17 @@ export async function addCoins(userId: string, amount: number) {
     .update(fishingProfile)
     .set({ coins: sql`${fishingProfile.coins} + ${amount}` })
     .where(eq(fishingProfile.userId, userId));
+
+  // Check coin milestones (lazy import to avoid circular deps)
+  if (amount > 0) {
+    const updated = await db
+      .select({ coins: fishingProfile.coins })
+      .from(fishingProfile)
+      .where(eq(fishingProfile.userId, userId));
+    const currentCoins = updated[0]?.coins ?? 0;
+    const { checkEconomyAchievements } = await import("./achievements");
+    await checkEconomyAchievements(userId, { coins: currentCoins });
+  }
 }
 
 export async function subtractCoins(userId: string, amount: number): Promise<boolean> {

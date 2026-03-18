@@ -1,4 +1,7 @@
 import { redis } from "@/db/redis";
+import { db } from "@/db";
+import { fishingProfile, fishingLog } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { fish as fishData } from "@/data/fish";
 import { junk as junkData } from "@/data/junk";
 import { baitItems, rodItems } from "@/data";
@@ -8,6 +11,10 @@ import { addItem } from "./inventory";
 import { removeItem, getItemQuantity } from "./inventory";
 import { getActiveEvent } from "./events";
 import { getPetBuffs } from "./pets";
+import { applyBuffsToCalculation } from "./buffs";
+import { checkCatchAchievements } from "./achievements";
+import { createId } from "@/utils/misc";
+import config from "@/config";
 import type { CatchResult, Fish, JunkItem } from "@/data/types";
 
 const COOLDOWN_SECONDS = 15;
@@ -57,6 +64,24 @@ export async function doFish(userId: string): Promise<CatchResult> {
   if (bait) rarityMult *= bait.rarityMultiplier;
   if (rod) rarityMult += rod.luckBonus;
 
+  // Cooldown base seconds (pets reduce it)
+  let cdSeconds = COOLDOWN_SECONDS;
+  if (petBuffs.cooldown_reduction) {
+    cdSeconds = Math.max(5, Math.floor(cdSeconds * (1 - petBuffs.cooldown_reduction)));
+  }
+
+  // Apply active buffs (potions)
+  const afterBuffs = await applyBuffsToCalculation(userId, {
+    xpMult,
+    coinMult,
+    rarityMult,
+    cooldownSecs: cdSeconds,
+  });
+  xpMult = afterBuffs.xpMult;
+  coinMult = afterBuffs.coinMult;
+  rarityMult = afterBuffs.rarityMult;
+  cdSeconds = afterBuffs.cooldownSecs;
+
   // Decide fish or junk
   const isJunk = Math.random() < junkChance;
 
@@ -77,14 +102,31 @@ export async function doFish(userId: string): Promise<CatchResult> {
       baitConsumed = true;
       // If last bait, unequip
       if (qty <= 1) {
-        const { fishingProfile } = await import("@/db/schema");
-        const { db } = await import("@/db");
-        const { eq } = await import("drizzle-orm");
         await db
           .update(fishingProfile)
           .set({ equippedBaitId: null })
           .where(eq(fishingProfile.userId, userId));
       }
+    }
+  }
+
+  // Rod durability
+  let rodBroke = false;
+  if (rod && rod.durability > 0) {
+    const currentDurability = profile.equippedRodDurability ?? rod.durability;
+    const newDurability = currentDurability - 1;
+    if (newDurability <= 0) {
+      // Rod breaks — revert to splintered twig
+      await db
+        .update(fishingProfile)
+        .set({ equippedRodId: "splintered_twig", equippedRodDurability: null })
+        .where(eq(fishingProfile.userId, userId));
+      rodBroke = true;
+    } else {
+      await db
+        .update(fishingProfile)
+        .set({ equippedRodDurability: newDurability })
+        .where(eq(fishingProfile.userId, userId));
     }
   }
 
@@ -95,27 +137,54 @@ export async function doFish(userId: string): Promise<CatchResult> {
   const baseCoins = Math.max(1, Math.floor(item.price * 0.1));
   const baseXp = isJunk ? 1 : (item as Fish).xp;
 
-  const coinsGained = Math.floor(baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)));
-  const xpGained = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)));
+  // Level coin bonus: +1.5% per level above 1
+  const levelCoinBonus = 1 + (profile.level - 1) * config.fishing.levelCoinBonusPercent;
 
-  await addCoins(userId, coinsGained);
-  const { levelUp, newLevel } = await addXp(userId, xpGained);
+  // Streak logic
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const lastFishDate = profile.lastFishDate;
+  let currentStreak = profile.currentStreak ?? 0;
+  let streakBonus = false;
+
+  if (!lastFishDate || lastFishDate !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+    if (lastFishDate === yesterdayStr) {
+      currentStreak += 1;
+    } else if (lastFishDate !== today) {
+      currentStreak = 1;
+    }
+    streakBonus = currentStreak > 1;
+
+    await db
+      .update(fishingProfile)
+      .set({ currentStreak, lastFishDate: today })
+      .where(eq(fishingProfile.userId, userId));
+  }
+
+  // Streak XP/coin bonus: +5% per streak day above 1, capped at 10 levels (50%)
+  if (streakBonus) {
+    const bonusMult = Math.min(currentStreak - 1, 10) * 0.05;
+    coinMult *= 1 + bonusMult;
+    xpMult *= 1 + bonusMult;
+  }
+
+  const finalCoins = Math.floor(baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus);
+  const finalXp = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)));
+
+  await addCoins(userId, finalCoins);
+  const { levelUp, newLevel } = await addXp(userId, finalXp);
 
   // Hut drop chance (~0.1%)
   const hutDrop = Math.random() < 0.001;
 
   // Set cooldown
-  let cdSeconds = COOLDOWN_SECONDS;
-  if (petBuffs.cooldown_reduction) {
-    cdSeconds = Math.max(5, Math.floor(cdSeconds * (1 - petBuffs.cooldown_reduction)));
-  }
   await redis.set(`fish:cd:${userId}`, Date.now().toString());
   await redis.send("EXPIRE", [`fish:cd:${userId}`, cdSeconds.toString()]);
 
   // Log catch
-  const { fishingLog } = await import("@/db/schema");
-  const { db } = await import("@/db");
-  const { createId } = await import("@/utils/misc");
   await db.insert(fishingLog).values({
     id: createId(),
     userId,
@@ -123,7 +192,34 @@ export async function doFish(userId: string): Promise<CatchResult> {
     itemType: item.category,
   });
 
-  return { item, xpGained, coinsGained, baitConsumed, hutDrop, levelUp, newLevel };
+  // Count junk total for achievements
+  const junkLogs = await db
+    .select()
+    .from(fishingLog)
+    .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk")));
+
+  const newAchievements = await checkCatchAchievements(userId, {
+    totalCatches: profile.totalCatches + 1,
+    itemRarity: item.rarity,
+    itemType: item.category,
+    junkTotal: isJunk ? junkLogs.length + 1 : junkLogs.length,
+    currentStreak,
+    rodBroke,
+  });
+
+  return {
+    item,
+    xpGained: finalXp,
+    coinsGained: finalCoins,
+    baitConsumed,
+    hutDrop,
+    levelUp,
+    newLevel,
+    rodBroke,
+    streakDay: currentStreak,
+    streakBonus,
+    newAchievements,
+  };
 }
 
 function weightedRandom<T extends { weight: number }>(items: T[]): T {

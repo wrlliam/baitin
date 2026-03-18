@@ -52,3 +52,24 @@ export function stopEventScheduler() {
     schedulerInterval = null;
   }
 }
+
+export async function stopEvent(): Promise<boolean> {
+  const active = await getActiveEvent();
+  if (!active) return false;
+  await redis.del(ACTIVE_EVENT_KEY);
+  return true;
+}
+
+export async function checkScheduledEvents(): Promise<void> {
+  const active = await getActiveEvent();
+  if (active) return; // Already an event running
+
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcMinute = now.getUTCMinutes();
+
+  // Morning Rush: activate at 07:00 UTC (within first 5 minutes)
+  if (utcHour === 7 && utcMinute < 5) {
+    await activateEvent("morning_rush");
+  }
+}

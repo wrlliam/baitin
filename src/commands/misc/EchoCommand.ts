@@ -1,6 +1,4 @@
-import { Embed } from "@/core/Embed";
 import { Command } from "@/core/typings";
-import { paginate } from "@/utils/pagination";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,

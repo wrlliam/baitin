@@ -4,9 +4,10 @@ import { baits } from "./baits";
 import { rods } from "./rods";
 import { pets, eggs } from "./pets";
 import { events } from "./events";
+import { potions } from "./potions";
 import { sackTiers } from "./sack";
 import { hutSpeedUpgrades, hutLuckUpgrades, hutInventoryUpgrades } from "./hut";
-import type { BaseItem, Fish, JunkItem, Bait, Rod, Pet, Egg, GameEvent, SackTier, HutUpgrade } from "./types";
+import type { BaseItem, Fish, JunkItem, Bait, Rod, Pet, Egg, GameEvent, SackTier, HutUpgrade, Potion } from "./types";
 
 const fishMap = new Map<string, Fish>();
 const junkMap = new Map<string, JunkItem>();
@@ -15,11 +16,12 @@ const rodMap = new Map<string, Rod>();
 const petMap = new Map<string, Pet>();
 const eggMap = new Map<string, Egg>();
 const eventMap = new Map<string, GameEvent>();
+const potionMap = new Map<string, Potion>();
 const allItemsMap = new Map<string, BaseItem>();
 
 function buildMaps() {
   fishMap.clear(); junkMap.clear(); baitMap.clear(); rodMap.clear();
-  petMap.clear(); eggMap.clear(); eventMap.clear(); allItemsMap.clear();
+  petMap.clear(); eggMap.clear(); eventMap.clear(); potionMap.clear(); allItemsMap.clear();
 
   for (const f of fish) { fishMap.set(f.id, f); allItemsMap.set(f.id, f); }
   for (const j of junk) { junkMap.set(j.id, j); allItemsMap.set(j.id, j); }
@@ -28,6 +30,7 @@ function buildMaps() {
   for (const p of pets) { petMap.set(p.id, p); }
   for (const e of eggs) { eggMap.set(e.id, e); allItemsMap.set(e.id, e); }
   for (const ev of events) { eventMap.set(ev.id, ev); }
+  for (const po of potions) { potionMap.set(po.id, po); allItemsMap.set(po.id, po); }
 }
 
 buildMaps();
@@ -39,6 +42,7 @@ export const rodItems = rodMap;
 export const petItems = petMap;
 export const eggItems = eggMap;
 export const gameEvents = eventMap;
+export const potionItems = potionMap;
 export const allItems = allItemsMap;
 
 export { sackTiers } from "./sack";
@@ -49,6 +53,7 @@ export { baits } from "./baits";
 export { rods } from "./rods";
 export { pets, eggs } from "./pets";
 export { events } from "./events";
+export { potions } from "./potions";
 
 export function getItem(id: string): BaseItem | undefined {
   return allItemsMap.get(id);

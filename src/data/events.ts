@@ -1,6 +1,7 @@
 import type { GameEvent } from "./types";
 
 export const events: GameEvent[] = [
+  // ── ORIGINAL EVENTS ───────────────────────────────────────────────────────
   {
     id: "feeding_frenzy",
     name: "Feeding Frenzy",
@@ -10,7 +11,7 @@ export const events: GameEvent[] = [
       { type: "xp_multiplier", value: 2.0 },
     ],
     schedule: "random",
-    duration: 30 * 60 * 1000, // 30 minutes
+    duration: 30 * 60 * 1000,
   },
   {
     id: "toxic_spill",
@@ -21,7 +22,7 @@ export const events: GameEvent[] = [
       { type: "catch_rate", value: 0.8 },
     ],
     schedule: "random",
-    duration: 20 * 60 * 1000, // 20 minutes
+    duration: 20 * 60 * 1000,
   },
   {
     id: "kings_tournament",
@@ -32,7 +33,7 @@ export const events: GameEvent[] = [
       { type: "xp_multiplier", value: 1.5 },
     ],
     schedule: "random",
-    duration: 60 * 60 * 1000, // 1 hour
+    duration: 60 * 60 * 1000,
     entryFee: 100,
   },
   {
@@ -44,7 +45,7 @@ export const events: GameEvent[] = [
       { type: "xp_multiplier", value: 1.25 },
     ],
     schedule: "random",
-    duration: 45 * 60 * 1000, // 45 minutes
+    duration: 45 * 60 * 1000,
   },
   {
     id: "merchant_shipwreck",
@@ -55,6 +56,241 @@ export const events: GameEvent[] = [
       { type: "catch_rate", value: 1.2 },
     ],
     schedule: "random",
-    duration: 15 * 60 * 1000, // 15 minutes
+    duration: 15 * 60 * 1000,
+  },
+  {
+    id: "morning_rush",
+    name: "Morning Rush",
+    description: "Early morning brings an XP rush! Anglers earn double experience.",
+    effects: [{ type: "xp_multiplier", value: 2.0 }],
+    schedule: "07:00-08:00 UTC",
+    duration: 60 * 60 * 1000,
+  },
+
+  // ── NEW EVENTS ────────────────────────────────────────────────────────────
+  {
+    id: "high_tide_bonanza",
+    name: "High Tide Bonanza",
+    description: "Rising tides flood new feeding zones. Bite rates surge and rare spawns increase.",
+    effects: [
+      { type: "catch_rate", value: 1.75 },
+      { type: "rarity_boost", value: 1.2 },
+    ],
+    schedule: "random",
+    duration: 45 * 60 * 1000,
+  },
+  {
+    id: "ghost_fleet_arrival",
+    name: "Ghost Fleet Arrival",
+    description: "Spectral ships drift into harbour. Cursed relics and spectral fish rise with them.",
+    effects: [
+      { type: "rarity_boost", value: 2.0 },
+      { type: "coin_multiplier", value: 1.5 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "volcanic_upwelling",
+    name: "Volcanic Upwelling",
+    description: "Superheated water carries heat-resistant species and rare magma items to the surface.",
+    effects: [
+      { type: "rarity_boost", value: 1.8 },
+      { type: "catch_rate", value: 0.85 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "monsoon_runoff",
+    name: "Monsoon Runoff",
+    description: "Flooded rivers mix fresh and salt water, spawning exotic hybrid species.",
+    effects: [
+      { type: "catch_rate", value: 1.3 },
+      { type: "rarity_boost", value: 1.4 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "fishermans_fair",
+    name: "Fisherman's Fair",
+    description: "A travelling market arrives! NPC quest payouts and vendor prices are boosted.",
+    effects: [
+      { type: "coin_multiplier", value: 1.5 },
+      { type: "xp_multiplier", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 60 * 60 * 1000,
+    entryFee: 50,
+  },
+  {
+    id: "rare_spawning_window",
+    name: "Rare Spawning Window",
+    description: "A brief seasonal window opens rare breeding grounds. Rods wear faster.",
+    effects: [
+      { type: "rarity_boost", value: 2.2 },
+      { type: "catch_rate", value: 0.9 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "sirens_call",
+    name: "Siren's Call",
+    description: "Legendary fish surface, lured by an unearthly song. Some anglers report losing time.",
+    effects: [
+      { type: "rarity_boost", value: 3.0 },
+      { type: "coin_multiplier", value: 0.8 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+    entryFee: 100,
+  },
+  {
+    id: "magnetic_storm",
+    name: "Magnetic Storm",
+    description: "Electromagnetic interference floods the water with metallic junk and tech debris.",
+    effects: [
+      { type: "catch_rate", value: 1.2 },
+      { type: "coin_multiplier", value: 0.9 },
+    ],
+    schedule: "random",
+    duration: 25 * 60 * 1000,
+  },
+  {
+    id: "blackout_night",
+    name: "Blackout Night",
+    description: "All lights go out. Stealth spawns increase dramatically — as do ambushes.",
+    effects: [
+      { type: "rarity_boost", value: 1.8 },
+      { type: "catch_rate", value: 1.1 },
+    ],
+    schedule: "random",
+    duration: 45 * 60 * 1000,
+  },
+  {
+    id: "treasure_convoy",
+    name: "Treasure Convoy",
+    description: "A sunken convoy trail runs through the fishing grounds. Gold and safes abound.",
+    effects: [
+      { type: "coin_multiplier", value: 2.5 },
+      { type: "rarity_boost", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "pirate_raid",
+    name: "Pirate Raid",
+    description: "Pirates are boarding! High risk, high reward — loot is exceptional if you survive.",
+    effects: [
+      { type: "coin_multiplier", value: 2.0 },
+      { type: "catch_rate", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "iceberg_drift",
+    name: "Iceberg Drift",
+    description: "A massive iceberg drifts through, carrying arctic species and ice relics.",
+    effects: [
+      { type: "rarity_boost", value: 1.6 },
+      { type: "catch_rate", value: 0.9 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "festival_of_nets",
+    name: "Festival of Nets",
+    description: "Community catch-off! Mass-catch bonuses active in designated zones.",
+    effects: [
+      { type: "catch_rate", value: 2.0 },
+      { type: "xp_multiplier", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 60 * 60 * 1000,
+    entryFee: 25,
+  },
+  {
+    id: "merchant_auction",
+    name: "Merchant Auction",
+    description: "Rare rods and baits are literally floating in the water. Keep what you hook.",
+    effects: [
+      { type: "coin_multiplier", value: 1.8 },
+      { type: "rarity_boost", value: 1.4 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "tropical_bloom",
+    name: "Tropical Bloom",
+    description: "Warm-water species surge in brilliant daytime spawning colours.",
+    effects: [
+      { type: "catch_rate", value: 1.6 },
+      { type: "xp_multiplier", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "deep_trench_vent",
+    name: "Deep Trench Vent",
+    description: "A thermal vent opens to the abyss. Extreme deep-sea creatures rise up.",
+    effects: [
+      { type: "rarity_boost", value: 2.5 },
+      { type: "xp_multiplier", value: 1.5 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "quantum_fog",
+    name: "Quantum Fog",
+    description: "Reality shimmers. Temporal duplicates of fish appear. Stabiliser fee required.",
+    effects: [
+      { type: "rarity_boost", value: 2.0 },
+      { type: "coin_multiplier", value: 0.8 },
+    ],
+    schedule: "random",
+    duration: 15 * 60 * 1000,
+    entryFee: 300,
+  },
+  {
+    id: "marine_migration",
+    name: "Marine Migration",
+    description: "Enormous schools sweep through the area. Easy mass catches, brief window.",
+    effects: [
+      { type: "catch_rate", value: 3.0 },
+      { type: "xp_multiplier", value: 2.0 },
+    ],
+    schedule: "random",
+    duration: 15 * 60 * 1000,
+  },
+  {
+    id: "fabled_eclipse",
+    name: "Fabled Eclipse",
+    description: "Legendary-tier fish breach the surface during the eclipse. Fierce competition.",
+    effects: [
+      { type: "rarity_boost", value: 5.0 },
+      { type: "catch_rate", value: 1.5 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+    entryFee: 1000,
+  },
+  {
+    id: "algae_plague",
+    name: "Algae Plague",
+    description: "A dense algae bloom chokes the water. Plant materials are plentiful; fish are not.",
+    effects: [
+      { type: "catch_rate", value: 0.5 },
+      { type: "coin_multiplier", value: 0.7 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
   },
 ];

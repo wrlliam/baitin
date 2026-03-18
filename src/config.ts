@@ -4,20 +4,27 @@ export default {
     dev: "1283484433390895215",
   },
   embed: {
-    defaultFooter: `djs-template • /help`,
+    defaultFooter: `Baitin • /help`,
+  },
+  status: {
+    name: "Baitin • /help",
+    state: "Baitin • /help",
   },
   timeout: {
     customCommands: 2.5 * 1000, // 2.5 seconds
     leveling: 6 * 1000, // 6 seconds
   },
   colors: {
-    default: "#2b7fff",
+    default: "#242429",
     error: "#fb2c36",
     success: "#00c951",
-    info: "#2b7fff",
+    info: "#242429",
     warn: "#ff8904",
   },
   emojis: {
+    coin: `🪙`,
+    up_arrow: `⬆️`,
+    down_arrow: `⬇️`,
     cross: "<:20943crossmark:1374441878942122044>",
     tick: "<:37667checkmark:1374441901830176838>",
     admin: "<:60849staff:1374441954770944061>",
@@ -38,5 +45,11 @@ export default {
       lvl_seven: "<:90891level7:1374856068882239569>",
       lvl_eight: "<:32632level8:1374856130936832031>",
     },
+  },
+  fishing: {
+    sellPriceMultiplier: 0.6,
+    maxAuctionListings: 5,
+    castAnimationDelay: 1500, // ms
+    levelCoinBonusPercent: 0.015, // +1.5%/level
   },
 } as const;

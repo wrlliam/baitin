@@ -1,9 +1,11 @@
 import { db } from "@/db";
 import { marketListing } from "@/db/schema";
-import { eq, and, sql, desc, lt } from "drizzle-orm";
+import { eq, and, sql, desc, lt, count } from "drizzle-orm";
+import { allItems } from "@/data";
 import { createId } from "@/utils/misc";
 import { removeItem, addItem } from "./inventory";
 import { subtractCoins, addCoins } from "./economy";
+import { checkEconomyAchievements } from "./achievements";
 
 export async function createListing(
   sellerId: string,
@@ -33,6 +35,9 @@ export async function createListing(
     auctionEndAt,
     status: "active",
   });
+
+  // Achievement: first market sale
+  await checkEconomyAchievements(sellerId, { madeMarketSale: true });
 
   return { success: true, listingId: id };
 }
@@ -164,17 +169,36 @@ export async function settleExpiredAuctions() {
 export async function getListings(filters?: { category?: string; status?: string; page?: number; pageSize?: number }) {
   const page = filters?.page ?? 1;
   const pageSize = filters?.pageSize ?? 10;
+  const status = filters?.status ?? "active";
 
-  let query = db.select().from(marketListing);
+  const conditions = [eq(marketListing.status, status)];
+  if (filters?.category) {
+    conditions.push(eq(marketListing.itemType, filters.category));
+  }
 
-  // Apply status filter — default to active
   const rows = await db
     .select()
     .from(marketListing)
-    .where(eq(marketListing.status, filters?.status ?? "active"))
+    .where(and(...conditions))
     .orderBy(desc(marketListing.createdAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
   return rows;
+}
+
+export async function getActiveListingCount(sellerId: string): Promise<number> {
+  const result = await db
+    .select({ value: count() })
+    .from(marketListing)
+    .where(and(eq(marketListing.sellerId, sellerId), eq(marketListing.status, "active")));
+
+  return result[0]?.value ?? 0;
+}
+
+export function canAuction(itemId: string): boolean {
+  const item = allItems.get(itemId);
+  if (!item) return false;
+  const rarityOrder = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
+  return rarityOrder.indexOf(item.rarity) >= rarityOrder.indexOf("rare");
 }

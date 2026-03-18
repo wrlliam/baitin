@@ -68,11 +68,15 @@ export interface Pet {
   rarity: ItemRarity;
   emoji: string;
   buffs: PetBuff[];
+  pros: string[];
+  cons: string[];
 }
 
 export interface Egg extends BaseItem {
   category: "egg";
   possiblePets: string[];
+  hatchTimeMinutes: number;
+  failChance: number; // 0–1, chance the egg fails to hatch
 }
 
 export interface SackTier {
@@ -118,4 +122,25 @@ export interface CatchResult {
   hutDrop: boolean;
   levelUp: boolean;
   newLevel?: number;
+  rodBroke?: boolean;
+  streakDay?: number;
+  streakBonus?: boolean;
+  newAchievements?: import("@/data/achievements").AchievementDef[];
+}
+
+export interface BuffEffect {
+  type: "xp_boost" | "coin_boost" | "luck_boost" | "cooldown_reduction" | "hatch_speed" | "pet_effect_boost" | "cost_reduction";
+  amount: number; // positive = buff, negative = debuff
+  durationMinutes: number;
+}
+
+export interface Potion extends BaseItem {
+  category: "misc";
+  effects: BuffEffect[];
+}
+
+export interface ActiveBuff {
+  type: BuffEffect["type"];
+  amount: number;
+  expiresAt: number; // Unix ms
 }

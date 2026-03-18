@@ -34,6 +34,14 @@ export const fishingProfile = pgTable("fishing_profile", {
   equippedBaitId: text("equipped_bait_id"),
   equippedPets: text("equipped_pets").array().notNull().default([]),
   totalCatches: integer("total_catches").default(0).notNull(),
+  equippedRodDurability: integer("equipped_rod_durability"),
+  leaderboardHidden: boolean("leaderboard_hidden").default(false).notNull(),
+  hutOwned: boolean("hut_owned").default(false).notNull(),
+  // Streak
+  currentStreak: integer("current_streak").default(0).notNull(),
+  lastFishDate: date("last_fish_date"),
+  // Settings
+  hutNotifications: boolean("hut_notifications").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -59,6 +67,7 @@ export const hut = pgTable("hut", {
   id: text("id").primaryKey(),
   userId: text("user_id").unique().notNull(),
   rodId: text("rod_id"),
+  rodDurability: integer("rod_durability"),
   level: integer("level").default(1).notNull(),
   speedLevel: integer("speed_level").default(1).notNull(),
   luckLevel: integer("luck_level").default(1).notNull(),
@@ -93,6 +102,7 @@ export const petInstance = pgTable("pet_instance", {
   userId: text("user_id").notNull(),
   petId: text("pet_id").notNull(),
   name: text("name"),
+  petLevel: integer("pet_level").default(1).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -117,6 +127,30 @@ export const marketListing = pgTable("market_listing", {
 export type MarketListingSelect = typeof marketListing.$inferSelect;
 export type MarketListingInsert = typeof marketListing.$inferInsert;
 
+export const hutNotifications = pgTable("hut_notifications", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  message: text("message").notNull(), // JSON: { name, emoji, quantity }[]
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  read: boolean("read").default(false).notNull(),
+});
+
+export type HutNotificationSelect = typeof hutNotifications.$inferSelect;
+export type HutNotificationInsert = typeof hutNotifications.$inferInsert;
+
+export const eggIncubator = pgTable("egg_incubator", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  eggId: text("egg_id").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  hatchesAt: timestamp("hatches_at", { withTimezone: true }).notNull(),
+  hatched: boolean("hatched").default(false).notNull(),
+  failed: boolean("failed").default(false).notNull(),
+});
+
+export type EggIncubatorSelect = typeof eggIncubator.$inferSelect;
+export type EggIncubatorInsert = typeof eggIncubator.$inferInsert;
+
 export const fishingLog = pgTable("fishing_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
@@ -127,3 +161,17 @@ export const fishingLog = pgTable("fishing_log", {
 
 export type FishingLogSelect = typeof fishingLog.$inferSelect;
 export type FishingLogInsert = typeof fishingLog.$inferInsert;
+
+export const achievement = pgTable(
+  "achievement",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    achievementId: text("achievement_id").notNull(),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [unique("ach_user_ach").on(t.userId, t.achievementId)],
+);
+
+export type AchievementSelect = typeof achievement.$inferSelect;
+export type AchievementInsert = typeof achievement.$inferInsert;

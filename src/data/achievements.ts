@@ -1,0 +1,244 @@
+export interface AchievementDef {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  /** Coin reward on first unlock */
+  coinReward: number;
+  /** XP reward on first unlock */
+  xpReward: number;
+  /** Category for display grouping */
+  category: "catches" | "economy" | "gear" | "social" | "fun";
+}
+
+export const achievementDefs: AchievementDef[] = [
+  // ── Catches ────────────────────────────────────────────────────────────────
+  {
+    id: "first_catch",
+    name: "First Cast",
+    description: "Catch your very first fish.",
+    emoji: "🎣",
+    coinReward: 50,
+    xpReward: 10,
+    category: "catches",
+  },
+  {
+    id: "catches_10",
+    name: "Getting the Hang of It",
+    description: "Catch 10 fish.",
+    emoji: "🐟",
+    coinReward: 100,
+    xpReward: 20,
+    category: "catches",
+  },
+  {
+    id: "catches_100",
+    name: "Century Angler",
+    description: "Catch 100 fish.",
+    emoji: "💯",
+    coinReward: 500,
+    xpReward: 100,
+    category: "catches",
+  },
+  {
+    id: "catches_500",
+    name: "Seasoned Fisher",
+    description: "Catch 500 fish.",
+    emoji: "🏆",
+    coinReward: 2000,
+    xpReward: 300,
+    category: "catches",
+  },
+  {
+    id: "catches_1000",
+    name: "Master Angler",
+    description: "Catch 1,000 fish.",
+    emoji: "👑",
+    coinReward: 5000,
+    xpReward: 500,
+    category: "catches",
+  },
+  {
+    id: "first_rare",
+    name: "Something Special",
+    description: "Catch your first rare fish.",
+    emoji: "◆",
+    coinReward: 200,
+    xpReward: 50,
+    category: "catches",
+  },
+  {
+    id: "first_epic",
+    name: "Epic Find",
+    description: "Catch your first epic fish.",
+    emoji: "❖",
+    coinReward: 500,
+    xpReward: 100,
+    category: "catches",
+  },
+  {
+    id: "first_legendary",
+    name: "Legend Has It",
+    description: "Catch your first legendary fish.",
+    emoji: "✦",
+    coinReward: 2000,
+    xpReward: 300,
+    category: "catches",
+  },
+  {
+    id: "first_mythic",
+    name: "Myth Confirmed",
+    description: "Catch your first mythic fish.",
+    emoji: "✦✦",
+    coinReward: 10000,
+    xpReward: 1000,
+    category: "catches",
+  },
+  {
+    id: "junk_collector",
+    name: "Junk Collector",
+    description: "Catch 50 junk items.",
+    emoji: "🗑️",
+    coinReward: 150,
+    xpReward: 30,
+    category: "fun",
+  },
+  {
+    id: "junk_hoarder",
+    name: "Treasure in the Trash",
+    description: "Catch 200 junk items.",
+    emoji: "♻️",
+    coinReward: 400,
+    xpReward: 80,
+    category: "fun",
+  },
+
+  // ── Economy ────────────────────────────────────────────────────────────────
+  {
+    id: "earn_1000",
+    name: "Pocket Change",
+    description: "Accumulate 1,000 coins.",
+    emoji: "💰",
+    coinReward: 100,
+    xpReward: 20,
+    category: "economy",
+  },
+  {
+    id: "earn_10000",
+    name: "High Roller",
+    description: "Accumulate 10,000 coins.",
+    emoji: "💎",
+    coinReward: 500,
+    xpReward: 100,
+    category: "economy",
+  },
+  {
+    id: "first_market_sale",
+    name: "Open for Business",
+    description: "Sell an item on the market.",
+    emoji: "🏪",
+    coinReward: 200,
+    xpReward: 40,
+    category: "economy",
+  },
+  {
+    id: "big_spender",
+    name: "Big Spender",
+    description: "Spend 5,000 coins in the shop.",
+    emoji: "💸",
+    coinReward: 300,
+    xpReward: 60,
+    category: "economy",
+  },
+
+  // ── Gear ───────────────────────────────────────────────────────────────────
+  {
+    id: "first_rod_upgrade",
+    name: "Upgrading My Game",
+    description: "Buy a rod from the shop.",
+    emoji: "🎣",
+    coinReward: 200,
+    xpReward: 40,
+    category: "gear",
+  },
+  {
+    id: "hut_owner",
+    name: "My Own Place",
+    description: "Purchase a fishing hut.",
+    emoji: "🏠",
+    coinReward: 500,
+    xpReward: 100,
+    category: "gear",
+  },
+  {
+    id: "rod_broke",
+    name: "Snap!",
+    description: "Break your first rod.",
+    emoji: "💥",
+    coinReward: 50,
+    xpReward: 10,
+    category: "gear",
+  },
+  {
+    id: "first_pet",
+    name: "New Companion",
+    description: "Hatch your first pet.",
+    emoji: "🐾",
+    coinReward: 300,
+    xpReward: 60,
+    category: "gear",
+  },
+
+  // ── Streaks ────────────────────────────────────────────────────────────────
+  {
+    id: "streak_3",
+    name: "Consistent",
+    description: "Fish 3 days in a row.",
+    emoji: "🔥",
+    coinReward: 150,
+    xpReward: 30,
+    category: "catches",
+  },
+  {
+    id: "streak_7",
+    name: "Week Warrior",
+    description: "Fish 7 days in a row.",
+    emoji: "🔥🔥",
+    coinReward: 500,
+    xpReward: 100,
+    category: "catches",
+  },
+  {
+    id: "streak_30",
+    name: "Dedicated Angler",
+    description: "Fish 30 days in a row.",
+    emoji: "🔥🔥🔥",
+    coinReward: 3000,
+    xpReward: 500,
+    category: "catches",
+  },
+
+  // ── Social ─────────────────────────────────────────────────────────────────
+  {
+    id: "first_steal",
+    name: "Sticky Fingers",
+    description: "Successfully steal an item.",
+    emoji: "🦹",
+    coinReward: 100,
+    xpReward: 20,
+    category: "social",
+  },
+  {
+    id: "steal_10",
+    name: "Thief",
+    description: "Successfully steal 10 items.",
+    emoji: "🏴‍☠️",
+    coinReward: 400,
+    xpReward: 80,
+    category: "social",
+  },
+];
+
+export const achievementMap = new Map<string, AchievementDef>(
+  achievementDefs.map((a) => [a.id, a]),
+);

@@ -1,12 +1,14 @@
 import { db } from "@/db";
-import { hut, hutInventory } from "@/db/schema";
+import { hut, hutInventory, hutNotifications, fishingProfile } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { createId } from "@/utils/misc";
-import { hutSpeedUpgrades, hutLuckUpgrades, hutInventoryUpgrades, rodItems } from "@/data";
+import { hutSpeedUpgrades, hutLuckUpgrades, hutInventoryUpgrades, rodItems, allItems } from "@/data";
 import { fish as fishData } from "@/data/fish";
 import { junk as junkData } from "@/data/junk";
-import { getOrCreateProfile, subtractCoins } from "./economy";
+import { getOrCreateProfile, subtractCoins, addCoins } from "./economy";
 import { removeItem } from "./inventory";
+import config from "@/config";
+import type { Client } from "discord.js";
 import type { Fish, JunkItem } from "@/data/types";
 
 export async function getHut(userId: string) {
@@ -14,13 +16,21 @@ export async function getHut(userId: string) {
   return rows[0] ?? null;
 }
 
-export async function createHut(userId: string) {
+export async function createHut(userId: string): Promise<{ success: false; error: string } | { success: true; data: Awaited<ReturnType<typeof getHut>> }> {
   const existing = await getHut(userId);
-  if (existing) return existing;
+  if (existing) return { success: true, data: existing };
+
+  // Check permit
+  const profileRows = await db.select().from(fishingProfile).where(eq(fishingProfile.userId, userId));
+  const profile = profileRows[0];
+  if (!profile?.hutOwned) {
+    return { success: false, error: "no_permit" };
+  }
 
   const id = createId();
   await db.insert(hut).values({ id, userId });
-  return (await db.select().from(hut).where(eq(hut.userId, userId)))[0]!;
+  const data = (await db.select().from(hut).where(eq(hut.userId, userId)))[0]!;
+  return { success: true, data };
 }
 
 export async function collectHut(userId: string): Promise<{ items: { id: string; name: string; emoji: string; quantity: number }[]; total: number } | null> {
@@ -32,7 +42,7 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
   const luckUpgrade = hutLuckUpgrades.find((u) => u.level === hutData.luckLevel);
   const luckBonus = luckUpgrade?.luckBonus ?? 0;
   const invUpgrade = hutInventoryUpgrades.find((u) => u.level === hutData.inventoryLevel);
-  const maxItems = invUpgrade?.capacity ?? 10;
+  const maxItems = invUpgrade?.capacity ?? 12;
 
   const now = new Date();
   const lastCollected = hutData.lastCollectedAt ?? now;
@@ -47,6 +57,7 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
   // Roll simplified catches
   const caughtItems: Map<string, { id: string; name: string; emoji: string; quantity: number }> = new Map();
   const rod = hutData.rodId ? rodItems.get(hutData.rodId) : null;
+  let currentRodDurability = hutData.rodDurability;
 
   for (let i = 0; i < catches; i++) {
     let junkChance = 0.25;
@@ -70,6 +81,21 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
     } else {
       caughtItems.set(caught.id, { id: caught.id, name: caught.name, emoji: caught.emoji, quantity: 1 });
     }
+
+    // Decrement rod durability for hut (if rod has durability)
+    if (rod && rod.durability > 0 && currentRodDurability !== null && currentRodDurability !== undefined) {
+      currentRodDurability--;
+      if (currentRodDurability <= 0) {
+        // Rod breaks in hut — clear it
+        await db.update(hut).set({ rodId: null, rodDurability: null }).where(eq(hut.id, hutData.id));
+        currentRodDurability = null;
+      }
+    }
+  }
+
+  // Update hut rod durability if it changed and rod hasn't broken
+  if (rod && rod.durability > 0 && currentRodDurability !== null && currentRodDurability !== hutData.rodDurability) {
+    await db.update(hut).set({ rodDurability: currentRodDurability }).where(eq(hut.id, hutData.id));
   }
 
   // Store in hut inventory
@@ -145,7 +171,7 @@ export async function upgradeHut(
   return { success: true, newLevel: currentLevel + 1 };
 }
 
-export async function setHutRod(userId: string, rodId: string): Promise<{ success: boolean; error?: string }> {
+export async function setHutRod(userId: string, rodId: string): Promise<{ success: boolean; error?: string; previousRodId?: string }> {
   const hutData = await getHut(userId);
   if (!hutData) return { success: false, error: "You don't have a hut yet!" };
 
@@ -156,8 +182,10 @@ export async function setHutRod(userId: string, rodId: string): Promise<{ succes
   const removed = await removeItem(userId, rodId, 1);
   if (!removed) return { success: false, error: "You don't have this rod in your sack." };
 
-  await db.update(hut).set({ rodId }).where(eq(hut.id, hutData.id));
-  return { success: true };
+  const previousRodId = hutData.rodId ?? undefined;
+  const rodDurability = rod.durability === 0 ? null : rod.durability;
+  await db.update(hut).set({ rodId, rodDurability }).where(eq(hut.id, hutData.id));
+  return { success: true, previousRodId };
 }
 
 export async function setHutPet(userId: string, petId: string | null): Promise<{ success: boolean; error?: string }> {
@@ -166,4 +194,85 @@ export async function setHutPet(userId: string, petId: string | null): Promise<{
 
   await db.update(hut).set({ petId }).where(eq(hut.id, hutData.id));
   return { success: true };
+}
+
+export async function sellHutItems(
+  userId: string,
+  itemId?: string
+): Promise<{ success: boolean; error?: string; totalCoins: number; itemCount: number }> {
+  const hutData = await getHut(userId);
+  if (!hutData) return { success: false, error: "You don't have a hut yet!", totalCoins: 0, itemCount: 0 };
+
+  const invRows = await db
+    .select()
+    .from(hutInventory)
+    .where(eq(hutInventory.hutId, hutData.id));
+
+  const toSell = itemId ? invRows.filter((r) => r.itemId === itemId) : invRows;
+  if (toSell.length === 0) return { success: false, error: "Nothing to sell.", totalCoins: 0, itemCount: 0 };
+
+  let totalCoins = 0;
+  let itemCount = 0;
+
+  for (const row of toSell) {
+    const item = allItems.get(row.itemId);
+    if (!item) continue;
+
+    const coins = Math.floor(item.price * config.fishing.sellPriceMultiplier * row.quantity);
+    await db.delete(hutInventory).where(eq(hutInventory.id, row.id));
+    await addCoins(userId, coins);
+    totalCoins += coins;
+    itemCount += row.quantity;
+  }
+
+  return { success: true, totalCoins, itemCount };
+}
+
+export async function processHutCatch(
+  hutData: Awaited<ReturnType<typeof getHut>>,
+  client: Client
+): Promise<void> {
+  if (!hutData) return;
+
+  const result = await collectHut(hutData.userId);
+  if (!result || result.items.length === 0) return;
+
+  const messagePayload = {
+    content: `🏚️ **Your hut caught some fish!**\n${result.items
+      .map((i) => `${i.emoji} **${i.name}** ×${i.quantity}`)
+      .join("\n")}`,
+  };
+
+  try {
+    const user = await client.users.fetch(hutData.userId);
+    await user.send(messagePayload);
+  } catch {
+    // DiscordAPIError 50007: Cannot send messages to this user — store as notification
+    await db.insert(hutNotifications).values({
+      id: createId(),
+      userId: hutData.userId,
+      message: JSON.stringify(result.items),
+    });
+  }
+}
+
+export async function runHutCron(client: Client): Promise<void> {
+  const huts = await db.select().from(hut);
+  for (const hutData of huts) {
+    await processHutCatch(hutData, client);
+  }
+}
+
+export async function getHutNotifications(userId: string) {
+  return db
+    .select()
+    .from(hutNotifications)
+    .where(eq(hutNotifications.userId, userId));
+}
+
+export async function markNotificationsRead(userId: string): Promise<void> {
+  await db
+    .update(hutNotifications)
+    .set({ read: true })
+    .where(eq(hutNotifications.userId, userId));
 }
