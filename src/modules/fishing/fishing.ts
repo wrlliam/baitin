@@ -1,7 +1,7 @@
 import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { fishingProfile, fishingLog } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { fish as fishData } from "@/data/fish";
 import { junk as junkData } from "@/data/junk";
 import { baitItems, rodItems } from "@/data";
@@ -33,11 +33,16 @@ export async function canFish(userId: string): Promise<{ ok: boolean; remaining:
 }
 
 export async function doFish(userId: string): Promise<CatchResult> {
+  // ── Fetch profile ONCE, pass it everywhere ──
   const profile = await getOrCreateProfile(userId);
   const rod = rodItems.get(profile.equippedRodId ?? "splintered_twig");
   const bait = profile.equippedBaitId ? baitItems.get(profile.equippedBaitId) : null;
-  const petBuffs = await getPetBuffs(userId);
-  const event = await getActiveEvent();
+
+  // ── Parallelize independent async calls: petBuffs + event ──
+  const [petBuffs, event] = await Promise.all([
+    getPetBuffs(userId, profile),
+    getActiveEvent(),
+  ]);
 
   // Build junk chance: base 20%, reduced by rod luck and bait
   let junkChance = 0.2;
@@ -130,8 +135,8 @@ export async function doFish(userId: string): Promise<CatchResult> {
     }
   }
 
-  // Add to inventory
-  await addItem(userId, item.id, item.category, 1);
+  // Add to inventory — pass sackLevel to avoid re-fetching profile
+  await addItem(userId, item.id, item.category, 1, profile.sackLevel);
 
   // XP and coins
   const baseCoins = Math.max(1, Math.floor(item.price * 0.1));
@@ -146,6 +151,9 @@ export async function doFish(userId: string): Promise<CatchResult> {
   let currentStreak = profile.currentStreak ?? 0;
   let streakBonus = false;
 
+  // Build a batch of profile field updates to combine into one DB call
+  const profileUpdates: Record<string, unknown> = {};
+
   if (!lastFishDate || lastFishDate !== today) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -158,10 +166,8 @@ export async function doFish(userId: string): Promise<CatchResult> {
     }
     streakBonus = currentStreak > 1;
 
-    await db
-      .update(fishingProfile)
-      .set({ currentStreak, lastFishDate: today })
-      .where(eq(fishingProfile.userId, userId));
+    profileUpdates.currentStreak = currentStreak;
+    profileUpdates.lastFishDate = today;
   }
 
   // Streak XP/coin bonus: +5% per streak day above 1, capped at 10 levels (50%)
@@ -174,35 +180,55 @@ export async function doFish(userId: string): Promise<CatchResult> {
   const finalCoins = Math.floor(baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus);
   const finalXp = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)));
 
+  // ── Batch the final writes: combine addXp fields + streak + totalCatches into one UPDATE ──
+  const newXp = profile.xp + finalXp;
+  const xpPerLevel = 100;
+  const newLevel = Math.floor(newXp / xpPerLevel) + 1;
+  const levelUp = newLevel > profile.level;
+
+  profileUpdates.xp = newXp;
+  profileUpdates.level = newLevel;
+  profileUpdates.totalCatches = sql`${fishingProfile.totalCatches} + 1`;
+
+  // Apply the batched profile update (streak + xp + level + totalCatches in one query)
+  await db
+    .update(fishingProfile)
+    .set(profileUpdates)
+    .where(eq(fishingProfile.userId, userId));
+
+  // addCoins still needs its own UPDATE because of the RETURNING + achievement check
   await addCoins(userId, finalCoins);
-  const { levelUp, newLevel } = await addXp(userId, finalXp);
 
   // Hut drop chance (~0.1%)
   const hutDrop = Math.random() < 0.001;
 
-  // Set cooldown
-  await redis.set(`fish:cd:${userId}`, Date.now().toString());
-  await redis.send("EXPIRE", [`fish:cd:${userId}`, cdSeconds.toString()]);
+  // ── Pipeline Redis cooldown SET + EXPIRE using SETEX ──
+  await redis.send("SETEX", [`fish:cd:${userId}`, cdSeconds.toString(), Date.now().toString()]);
 
-  // Log catch
-  await db.insert(fishingLog).values({
-    id: createId(),
-    userId,
-    itemId: item.id,
-    itemType: item.category,
-  });
+  // ── Log catch + count junk in parallel ──
+  const logId = createId();
+  const [, junkCountResult] = await Promise.all([
+    db.insert(fishingLog).values({
+      id: logId,
+      userId,
+      itemId: item.id,
+      itemType: item.category,
+    }),
+    db
+      .select({ junkCount: sql<number>`cast(count(*) as int)` })
+      .from(fishingLog)
+      .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk"))),
+  ]);
 
-  // Count junk total for achievements
-  const junkLogs = await db
-    .select()
-    .from(fishingLog)
-    .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk")));
+  // The junk count query runs against the state before our insert commits,
+  // so adjust if the current catch is junk
+  const junkTotal = (junkCountResult[0]?.junkCount ?? 0) + (isJunk ? 1 : 0);
 
   const newAchievements = await checkCatchAchievements(userId, {
     totalCatches: profile.totalCatches + 1,
     itemRarity: item.rarity,
     itemType: item.category,
-    junkTotal: isJunk ? junkLogs.length + 1 : junkLogs.length,
+    junkTotal,
     currentStreak,
     rodBroke,
   });

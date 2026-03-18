@@ -10,6 +10,7 @@ export const env = createEnv({
     DISCORD_CLIENT_SECRET: z.string().optional(),
 
     GUILD_ID: z.string(),
+    INVITE_URL: z.string().optional(),
     REDIS_URL: z.string(),
     TOKEN: z.string(),
   },
@@ -22,6 +23,7 @@ export const env = createEnv({
     DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
     DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
     GUILD_ID: process.env.GUILD_ID,
+    INVITE_URL: process.env.INVITE_URL,
     TOKEN: process.env.TOKEN,
   },
 });

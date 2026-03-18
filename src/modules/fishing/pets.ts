@@ -195,8 +195,8 @@ export async function unequipPet(
   return { success: true };
 }
 
-export async function getPetBuffs(userId: string): Promise<Record<string, number>> {
-  const profile = await getOrCreateProfile(userId);
+export async function getPetBuffs(userId: string, existingProfile?: import("@/db/schema").FishingProfileSelect): Promise<Record<string, number>> {
+  const profile = existingProfile ?? await getOrCreateProfile(userId);
   const petEffectBoost = await getBuffTotal(userId, "pet_effect_boost");
   const buffs: Record<string, number> = {};
 

@@ -1,15 +1,16 @@
 import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { gameEvents, events as eventsList } from "@/data";
-import { fishingProfile } from "@/db/schema";
-import { ne } from "drizzle-orm";
+import { fishingProfile, guildSettings } from "@/db/schema";
 import type { GameEvent } from "@/data/types";
-import type { Client, Guild } from "discord.js";
-import { MessageFlags } from "discord.js";
+import type { Client } from "discord.js";
 import { ui } from "@/ui";
 import config from "@/config";
 
 const ACTIVE_EVENT_KEY = "fish:event:active";
+const NEXT_EVENT_KEY = "fish:event:next";
+const MIN_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
+const MAX_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export async function getActiveEvent(): Promise<GameEvent | null> {
   const data = await redis.get(ACTIVE_EVENT_KEY);
@@ -50,42 +51,30 @@ export async function broadcastEventAnnouncement(
     )
     .divider()
     .text(
-      `Use **\`/event\`** to see details. Use **\`/settings event-notifications\`** to toggle these announcements.`,
+      `Use **\`/event\`** to see details. Admins: use **\`/setup event-channel\`** to set where these go.`,
     )
     .build();
 
-  try {
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        // Find a text channel the bot can send to
-        const channel = guild.channels.cache.find(
-          (ch) =>
-            ch.type === 0 && // GuildText
-            ch.permissionsFor(guild.members.me!)?.has("SendMessages"),
-        );
+  // Get all guild settings with configured channels
+  const allSettings = await db.select().from(guildSettings);
+  const channelMap = new Map(
+    allSettings
+      .filter((s) => s.eventNotificationChannelId)
+      .map((s) => [s.guildId, s.eventNotificationChannelId!]),
+  );
 
-        if (!channel) continue;
+  for (const guild of client.guilds.cache.values()) {
+    try {
+      const channelId = channelMap.get(guild.id);
+      if (!channelId) continue; // No channel configured, skip
 
-        // Get users with event notifications enabled
-        const usersWithNotifs = await db
-          .select({ userId: fishingProfile.userId })
-          .from(fishingProfile)
-          .where(ne(fishingProfile.eventNotifications, false));
+      const channel = guild.channels.cache.get(channelId);
+      if (!channel || channel.type !== 0) continue; // Not a valid text channel
 
-        // Only send if at least one member in the guild has notifications enabled
-        const hasEnabledUser = usersWithNotifs.some((u) =>
-          guild.members.cache.has(u.userId),
-        );
-
-        if (hasEnabledUser) {
-          await (channel as any).send(announcement as any);
-        }
-      } catch {
-        // Skip guilds where we can't send
-      }
+      await (channel as any).send(announcement as any);
+    } catch {
+      // Skip guilds where we can't send
     }
-  } catch {
-    // Silently fail if can't broadcast
   }
 }
 
@@ -100,22 +89,47 @@ export async function triggerEvent(eventId: string): Promise<GameEvent | null> {
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerClient: Client | null = null;
 
+async function scheduleNextEvent(force = false): Promise<void> {
+  if (!force) {
+    const existing = await redis.get(NEXT_EVENT_KEY);
+    if (existing) return; // Already scheduled
+  }
+  const delay = MIN_INTERVAL_MS + Math.random() * (MAX_INTERVAL_MS - MIN_INTERVAL_MS);
+  const nextAt = Date.now() + delay;
+  await redis.set(NEXT_EVENT_KEY, nextAt.toString());
+}
+
 export function startEventScheduler(client?: Client) {
   if (schedulerInterval) return;
   if (client) schedulerClient = client;
 
-  schedulerInterval = setInterval(async () => {
-    const active = await getActiveEvent();
-    if (active) return; // Already an event running
+  // Schedule next event if not already scheduled
+  scheduleNextEvent().catch(() => {});
 
-    // ~2% chance per check (every 60s) to trigger a random event
-    if (Math.random() < 0.02) {
+  schedulerInterval = setInterval(async () => {
+    try {
+      const active = await getActiveEvent();
+      if (active) return;
+
+      const nextAtStr = await redis.get(NEXT_EVENT_KEY);
+      if (!nextAtStr) {
+        await scheduleNextEvent();
+        return;
+      }
+
+      const nextAt = parseInt(nextAtStr);
+      if (Date.now() < nextAt) return;
+
+      // Time to trigger!
       const randomEvent = eventsList[Math.floor(Math.random() * eventsList.length)];
       await activateEvent(randomEvent.id);
       if (schedulerClient) {
         await broadcastEventAnnouncement(randomEvent, schedulerClient);
       }
-    }
+
+      // Schedule the next one
+      await scheduleNextEvent(true);
+    } catch {}
   }, 60 * 1000);
 }
 

@@ -6,6 +6,7 @@ import {
   ApplicationCommandType,
   ActionRowBuilder,
   ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
 
 export default {
@@ -24,19 +25,26 @@ export default {
   ],
   run: async ({ args, ctx }) => {
     const target = args.getUser("user") ?? ctx.user;
-    const avatarUrl = target.displayAvatarURL({ size: 512, extension: "png" });
+    const member = ctx.guild?.members.cache.get(target.id);
 
-    const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      linkBtn("Open Full Size", avatarUrl),
-    );
+    const globalAvatar = target.displayAvatarURL({ size: 1024, extension: "png" });
+    const serverAvatar = member?.displayAvatarURL({ size: 1024, extension: "png" });
+    const hasServerAvatar = serverAvatar && serverAvatar !== globalAvatar;
+
+    const galleryItems = [{ url: globalAvatar, description: "Global Avatar" }];
+    if (hasServerAvatar) {
+      galleryItems.push({ url: serverAvatar, description: "Server Avatar" });
+    }
 
     return ctx.reply(
       ui()
         .color(config.colors.default)
         .title(`🖼️ ${target.username}'s Avatar`)
-        .section(
-          `**${target.username}**\nClick the button to open the full-size image.`,
-          linkBtn("Open Full Size", avatarUrl),
+        .gallery(galleryItems)
+        .text(
+          hasServerAvatar
+            ? `Showing global and server avatar for **${target.username}**.`
+            : `**${target.username}**'s avatar.`,
         )
         .footer("Baitin • /help")
         .build() as any,

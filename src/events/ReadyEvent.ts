@@ -47,18 +47,18 @@ export default {
   name: "clientReady",
   run: () => {
     updateStatus();
-    setInterval(updateStatus, 60 * 1000); // check every minute
+    setInterval(async () => { try { await updateStatus(); } catch {} }, 60 * 1000);
 
     // Start random event scheduler
     startEventScheduler(app as unknown as Client);
 
     // Hut catches every 5 minutes
-    setInterval(() => runHutCron(app as unknown as Client), 5 * 60 * 1000);
+    setInterval(async () => { try { await runHutCron(app as unknown as Client); } catch {} }, 5 * 60 * 1000);
 
     // Auction settlement every 1 minute
-    setInterval(() => settleExpiredAuctions(), 60 * 1000);
+    setInterval(async () => { try { await settleExpiredAuctions(); } catch {} }, 60 * 1000);
 
     // Scheduled events (Morning Rush) every 1 minute
-    setInterval(() => checkScheduledEvents(app as unknown as Client), 60 * 1000);
+    setInterval(async () => { try { await checkScheduledEvents(app as unknown as Client); } catch {} }, 60 * 1000);
   },
 } as Event<keyof ClientEvents>;

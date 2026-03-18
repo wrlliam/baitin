@@ -67,7 +67,7 @@ export default class CoreBot extends Client {
       const filePwd = fileList[i];
       const data = (await import(`${process.cwd()}/src/commands/${filePwd}`))
         ?.default as Command;
-      if (!data.name) return;
+      if (!data.name) continue;
 
       this.commands.set(data.name, {
         ...data,
@@ -171,7 +171,7 @@ export default class CoreBot extends Client {
       const filePwd = fileList[i];
       const data = (await import(`${process.cwd()}/src/events/${filePwd}`))
         ?.default as Event<keyof ClientEvents>;
-      if (!data.name) return;
+      if (!data.name) continue;
       success(`Registered event: ${data.name}`);
       this.on(data.name, data.run);
     }

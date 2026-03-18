@@ -12,10 +12,23 @@ export async function addItem(
   userId: string,
   itemId: string,
   itemType: string,
-  qty: number = 1
+  qty: number = 1,
+  sackLevel?: number,
 ): Promise<boolean> {
-  const count = await getItemCount(userId);
-  const capacity = await getSackCapacity(userId);
+  // Compute capacity locally when sackLevel is provided, avoiding a profile fetch
+  let capacity: number;
+  if (sackLevel !== undefined) {
+    const tier = sackTiers.find((t) => t.level === sackLevel);
+    capacity = tier?.capacity ?? 5;
+  } else {
+    capacity = await getSackCapacity(userId);
+  }
+
+  // Use SUM query instead of fetching all rows
+  const [{ count }] = await db
+    .select({ count: sql<number>`cast(coalesce(sum(${fishingInventory.quantity}), 0) as int)` })
+    .from(fishingInventory)
+    .where(eq(fishingInventory.userId, userId));
 
   if (count + qty > capacity) return false;
 

@@ -259,7 +259,11 @@ export async function processHutCatch(
 export async function runHutCron(client: Client): Promise<void> {
   const huts = await db.select().from(hut);
   for (const hutData of huts) {
-    await processHutCatch(hutData, client);
+    try {
+      await processHutCatch(hutData, client);
+    } catch {
+      // Skip individual hut failures so remaining huts still process
+    }
   }
 }
 

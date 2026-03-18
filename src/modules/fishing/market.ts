@@ -153,15 +153,19 @@ export async function settleExpiredAuctions() {
     );
 
   for (const listing of expired) {
-    if (listing.highestBidderId && listing.highestBid) {
-      // Transfer to winner
-      await addItem(listing.highestBidderId, listing.itemId, listing.itemType, listing.quantity);
-      await addCoins(listing.sellerId, listing.highestBid);
-      await db.update(marketListing).set({ status: "sold" }).where(eq(marketListing.id, listing.id));
-    } else {
-      // No bids — return to seller
-      await addItem(listing.sellerId, listing.itemId, listing.itemType, listing.quantity);
-      await db.update(marketListing).set({ status: "expired" }).where(eq(marketListing.id, listing.id));
+    try {
+      if (listing.highestBidderId && listing.highestBid) {
+        // Transfer to winner
+        await addItem(listing.highestBidderId, listing.itemId, listing.itemType, listing.quantity);
+        await addCoins(listing.sellerId, listing.highestBid);
+        await db.update(marketListing).set({ status: "sold" }).where(eq(marketListing.id, listing.id));
+      } else {
+        // No bids — return to seller
+        await addItem(listing.sellerId, listing.itemId, listing.itemType, listing.quantity);
+        await db.update(marketListing).set({ status: "expired" }).where(eq(marketListing.id, listing.id));
+      }
+    } catch {
+      // Skip individual listing failures so remaining auctions still settle
     }
   }
 }
