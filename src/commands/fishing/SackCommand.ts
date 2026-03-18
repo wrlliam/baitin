@@ -1,6 +1,6 @@
 import config from "@/config";
 import { ui } from "@/ui";
-import { Command } from "@/core/typings";
+import { Command, ExtendedInteraction } from "@/core/typings";
 import { allItems, sackTiers } from "@/data";
 import { getOrCreateProfile } from "@/modules/fishing/economy";
 import { subtractCoins } from "@/modules/fishing/economy";
@@ -85,6 +85,7 @@ function buildInventoryContainer(
   nextTier: (typeof sackTiers)[number] | undefined,
   tierName: string,
   tierEmoji: string,
+  ctx: ExtendedInteraction,
 ) {
   const grouped: Record<string, typeof inventory> = {};
   for (const row of inventory) {
@@ -183,6 +184,7 @@ export default {
         nextTier,
         tierName,
         tierEmoji,
+        ctx,
       );
 
       const message = await ctx.editReply(invPayload as any);
@@ -201,7 +203,9 @@ export default {
           !interaction.customId.match(/_(?:1|all)_\d+$/)
         ) {
           // Extract item ID from: sack_sell_{itemId}_{userId}
-          selectedItemId = interaction.customId.replace(/_\d+$/, "").replace("sack_sell_", "");
+          selectedItemId = interaction.customId
+            .replace(/_\d+$/, "")
+            .replace("sack_sell_", "");
           const itemRow = (await getInventory(ctx.user.id)).find(
             (r) => r.itemId === selectedItemId,
           );
@@ -218,6 +222,7 @@ export default {
                 nextTier,
                 tierName,
                 tierEmoji,
+                ctx,
               ) as any,
             );
             return;
@@ -288,6 +293,7 @@ export default {
                 nextTier,
                 tierName,
                 tierEmoji,
+                ctx,
               ) as any,
             );
             return;
@@ -386,6 +392,7 @@ export default {
                   nextTier,
                   tierName,
                   tierEmoji,
+                  ctx,
                 ) as any,
               );
             }
