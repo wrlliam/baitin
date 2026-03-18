@@ -3,16 +3,16 @@ services:
     image: postgres:16-alpine
     container_name: djs-template-postgres
     environment:
-      POSTGRES_USER: postgres
+      POSTGRES_USER: baitin
       POSTGRES_PASSWORD: insecurepassword
-      POSTGRES_DB: djs-template
+      POSTGRES_DB: baitin
     ports:
       - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U baitin"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "insecurepassword", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,13 +36,12 @@ services:
     platform: linux/amd64
     image: "baitin"
     environment:
-      DATABASE_URL: postgresql://baitin:baitin@postgres:5435/baitin
-      REDIS_URL: redis://:insecurepassword@redis:6380
+      DATABASE_URL: postgresql://baitin:insecurepassword@postgres:5432/baitin
+      REDIS_URL: redis://:insecurepassword@redis:6379
       TOKEN: ${TOKEN}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       GUILD_ID: ${GUILD_ID}
       NODE_ENV: production
-
     depends_on:
       postgres:
         condition: service_healthy
