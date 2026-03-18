@@ -1,0 +1,1 @@
+railpack build . --start-cmd="bun run dev" --build-cmd="sleep 1"

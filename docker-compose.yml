@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: insecurepassword
       POSTGRES_DB: djs-template
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -35,12 +35,8 @@ services:
   baitin:
     platform: linux/amd64
     image: "baitin"
-    ports:
-      - "3004:3000"
-      - "3001:3001"
-      - "3002:3002"
     environment:
-      DATABASE_URL: postgresql://baitin:baitin@postgres:5432/baitin
+      DATABASE_URL: postgresql://baitin:baitin@postgres:5435/baitin
       REDIS_URL: redis://:insecurepassword@redis:6380
       TOKEN: ${TOKEN}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
