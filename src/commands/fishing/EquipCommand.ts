@@ -98,7 +98,6 @@ export default {
     return ctx.respond([]);
   },
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply({ flags: MessageFlags.Ephemeral });
 
     const sub = args.getSubcommand();
     const itemId = args.getString("name", true);

@@ -12,7 +12,6 @@ export const env = createEnv({
     GUILD_ID: z.string(),
     REDIS_URL: z.string(),
     TOKEN: z.string(),
-  
   },
   client: {},
   runtimeEnv: {
@@ -22,7 +21,6 @@ export const env = createEnv({
     // REDIS_URL: process.env.REDIS_URL,
     DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
     DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
-    API_PORT: process.env.API_PORT,
     GUILD_ID: process.env.GUILD_ID,
     TOKEN: process.env.TOKEN,
   },

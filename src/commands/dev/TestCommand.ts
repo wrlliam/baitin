@@ -47,7 +47,6 @@ export default {
   devOnly: true,
   run: async ({ ctx, client }) => {
     client.emit("guildCreate", ctx.guild as Guild);
-    await ctx.deferReply();
 
     // Build a gallery for the image section
     const galleryComponent = new MediaGalleryBuilder() as any;

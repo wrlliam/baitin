@@ -253,17 +253,24 @@ function _linkBtn(label: string, url: string): ButtonBuilder {
 }
 
 /**
- * Creates a SectionBuilder pre-configured as a list item with a name, description,
- * and an optional button or thumbnail accessory on the right.
+ * Creates a list item. When an accessory is provided, returns a SectionBuilder with
+ * text on the left and a button or thumbnail on the right. When no accessory is
+ * provided, returns a TextDisplayBuilder formatted as "**name** — desc" (SectionBuilder
+ * requires an accessory per Discord's Components V2 spec).
  *
  * @example
- * ui.item("Daily Command", "Get daily coins and build a streak!", ui.btn("/daily", "cmd:daily"))
+ * ui.item("Daily Command", "Get daily coins!", ui.btn("/daily", "cmd:daily"))
+ * ui.item("Wallet", "500 coins") // → TextDisplayBuilder
  */
 function _item(
   name: string,
   desc: string,
   accessory?: ButtonBuilder | SectionButtonAccessory | SectionThumbnailAccessory,
-): SectionBuilder {
+): SectionBuilder | TextDisplayBuilder {
+  if (!accessory) {
+    return new TextDisplayBuilder().setContent(`**${name}** — ${desc}`);
+  }
+
   let resolved: SectionAccessory | undefined;
 
   if (accessory instanceof ButtonBuilder) {
@@ -276,7 +283,7 @@ function _item(
       emoji: data.emoji?.name,
       disabled: data.disabled,
     };
-  } else if (accessory) {
+  } else {
     resolved = accessory;
   }
 
@@ -411,18 +418,23 @@ export class UIBuilder {
   }
 
   /**
-   * Adds a list of SectionBuilders (e.g. from `ui.item(...)`).
-   * Each item is a row with text on the left and an optional button/thumbnail on the right.
+   * Adds a list of items (e.g. from `ui.item(...)`).
+   * SectionBuilder items render as a row with text + accessory; TextDisplayBuilder items
+   * render as plain formatted text (used when no accessory is provided).
    *
    * @example
    * .list([
-   *   ui.item("Daily Command", "Get daily coins and build a streak!", ui.btn("/daily", "cmd:daily")),
-   *   ui.item("Shop", "Browse items for sale.", ui.btn("/shop", "cmd:shop")),
+   *   ui.item("Daily Command", "Get daily coins!", ui.btn("/daily", "cmd:daily")),
+   *   ui.item("Wallet", "500 coins"), // no accessory → text display
    * ])
    */
-  list(items: SectionBuilder[]): this {
+  list(items: (SectionBuilder | TextDisplayBuilder)[]): this {
     for (const item of items) {
-      this._c.addSectionComponents(item);
+      if (item instanceof TextDisplayBuilder) {
+        this._c.addTextDisplayComponents(item);
+      } else {
+        this._c.addSectionComponents(item);
+      }
     }
     return this;
   }

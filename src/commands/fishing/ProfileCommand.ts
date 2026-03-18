@@ -27,6 +27,7 @@ import {
   ButtonStyle,
   ComponentType,
   User,
+  MessageFlags,
 } from "discord.js";
 
 type ProfileTab = "overview" | "gear" | "stats" | "buffs";
@@ -256,7 +257,6 @@ export default {
     },
   ],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const target = args.getUser("user") ?? ctx.user;
 
     let activeTab: ProfileTab = "overview";

@@ -3,7 +3,8 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, subtractCoins } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType   MessageFlags,
+} from "discord.js";
 
 const COOLDOWN_SECS = 7200; // 2 hours
 const FINE = 150;
@@ -26,7 +27,6 @@ export default {
   usage: ["/crime"],
   options: [],
   run: async ({ ctx }) => {
-    await ctx.deferReply();
 
     const cooldown = await checkCooldown(ctx.user.id, "crime");
     if (!cooldown.ok) {

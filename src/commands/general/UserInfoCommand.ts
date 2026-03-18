@@ -5,6 +5,7 @@ import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
   GuildMember,
+  MessageFlags,
 } from "discord.js";
 
 export default {
@@ -21,7 +22,6 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    await ctx.deferReply();
 
     const target = args.getUser("user") ?? ctx.user;
     const member = ctx.guild?.members.cache.get(target.id) as

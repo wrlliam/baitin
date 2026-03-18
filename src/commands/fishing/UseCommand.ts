@@ -54,7 +54,6 @@ export default {
     );
   },
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply({ flags: MessageFlags.Ephemeral });
 
     const potionId = args.getString("potion", true);
     const potion = potionItems.get(potionId);

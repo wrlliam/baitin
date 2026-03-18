@@ -106,7 +106,6 @@ export default {
   usage: ["/shop"],
   options: [],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
 
     let category: ShopCategory = "bait";
     let page = 0;

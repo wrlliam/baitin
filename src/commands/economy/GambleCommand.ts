@@ -9,6 +9,7 @@ import {
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 const MAX_BET = 50_000;
@@ -45,7 +46,6 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    await ctx.deferReply();
 
     const amount = args.getInteger("amount", true);
 

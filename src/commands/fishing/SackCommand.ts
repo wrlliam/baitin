@@ -129,7 +129,6 @@ function buildInventoryContainer(
   return builder.build();
 }
 
-
 export default {
   name: "sack",
   description: "Manage your sack inventory.",
@@ -150,7 +149,6 @@ export default {
     },
   ],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const sub = args.getSubcommand();
     const profile = await getOrCreateProfile(ctx.user.id);
 
@@ -199,7 +197,9 @@ export default {
       collector.on("collect", async (interaction) => {
         if (
           interaction.componentType === ComponentType.Button &&
-          interaction.customId.startsWith("sack_sell_")
+          interaction.customId.startsWith("sack_sell_") &&
+          interaction.customId !== "sack_sell_1" &&
+          interaction.customId !== "sack_sell_all"
         ) {
           selectedItemId = interaction.customId.replace("sack_sell_", "");
           const itemRow = (await getInventory(ctx.user.id)).find(

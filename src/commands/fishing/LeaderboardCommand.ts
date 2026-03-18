@@ -10,6 +10,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 
 const MEDALS = ["\u{1F947}", "\u{1F948}", "\u{1F949}", "4\uFE0F\u20E3", "5\uFE0F\u20E3"];
@@ -100,7 +101,6 @@ export default {
   usage: ["/leaderboard"],
   options: [],
   run: async ({ client, ctx }) => {
-    await ctx.deferReply();
 
     const usernameCache = new Map<string, string>();
     const fetchUser = async (id: string) => {

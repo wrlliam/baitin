@@ -2,7 +2,8 @@ import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, subtractCoins } from "@/modules/fishing/economy";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType   MessageFlags,
+} from "discord.js";
 
 const COST = 50;
 const SYMBOLS = ["🐟", "🦐", "🦞", "🐡", "💎"];
@@ -22,7 +23,6 @@ export default {
   usage: ["/slots"],
   options: [],
   run: async ({ ctx }) => {
-    await ctx.deferReply();
 
     const paid = await subtractCoins(ctx.user.id, COST);
     if (!paid) {

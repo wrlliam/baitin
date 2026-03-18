@@ -6,6 +6,7 @@ import { getInventory, sellItem, sellAll } from "@/modules/fishing/inventory";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 const SELL_ALL_REACTIONS = ["💰", "🤑", "🎉", "🪙", "💸"];
@@ -79,7 +80,6 @@ export default {
     );
   },
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const sub = args.getSubcommand();
 
     if (sub === "all") {

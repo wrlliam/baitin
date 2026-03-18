@@ -71,6 +71,18 @@ export default {
         } as any);
       }
 
+      // Auto-defer ASAP to beat Discord's 3-second window
+      if (command.defer !== "none") {
+        try {
+          await interaction.deferReply(
+            command.defer ? { flags: MessageFlags.Ephemeral } : undefined,
+          );
+        } catch {
+          // Interaction already expired — nothing we can do
+          return;
+        }
+      }
+
       try {
         await command.run({
           //@ts-ignore

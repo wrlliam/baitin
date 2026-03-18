@@ -17,6 +17,8 @@ export type Command = {
   usage: string[];
   category?: string;
   devOnly?: boolean;
+  /** If true, the handler defers with Ephemeral. If false/undefined, defers normally. Set to "none" to skip auto-defer (command replies instantly). */
+  defer?: boolean | "none";
   autocomplete?: (opts: { ctx: AutocompleteInteraction; client: CoreBot }) => void | Promise<void>;
 } & ChatInputApplicationCommandData;
 

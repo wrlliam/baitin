@@ -13,6 +13,7 @@ import {
   ButtonStyle,
   ComponentType,
   User,
+  MessageFlags,
 } from "discord.js";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -89,7 +90,6 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    await ctx.deferReply();
     const target = args.getUser("user") ?? ctx.user;
 
     let activeTab: AchCat = "catches";

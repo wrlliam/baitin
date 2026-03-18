@@ -11,6 +11,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 
 const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"] as const;
@@ -106,7 +107,6 @@ export default {
   usage: ["/almanac"],
   options: [],
   run: async ({ ctx }) => {
-    await ctx.deferReply();
 
     let { embed, navRow, page } = await buildAlmanacPage(ctx.user.id, 0);
 

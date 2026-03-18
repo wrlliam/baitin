@@ -16,6 +16,7 @@ import { getInventory } from "@/modules/fishing/inventory";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 export default {
@@ -189,7 +190,6 @@ export default {
     );
   },
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const sub = args.getSubcommand();
 
     if (sub === "list") {

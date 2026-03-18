@@ -10,6 +10,7 @@ import {
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 const TYPE_LABELS: Record<RewardType, string> = {
@@ -50,7 +51,6 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    await ctx.deferReply();
     const type = args.getSubcommand() as RewardType;
     const { canClaim, expiresAt } = await canClaimReward(ctx.user.id, type);
 

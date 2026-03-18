@@ -12,6 +12,7 @@ import {
   getActiveEvent,
   activateEvent,
   stopEvent,
+  broadcastEventAnnouncement,
 } from "@/modules/fishing/events";
 import { db } from "@/db";
 import {
@@ -738,7 +739,6 @@ export default {
   },
 
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply({ flags: MessageFlags.Ephemeral });
     const sub = args.getSubcommand();
 
     // ── event-start ──────────────────────────────────────────────────────
@@ -751,20 +751,23 @@ export default {
         });
       }
       await activateEvent(eventId);
+      await broadcastEventAnnouncement(event, client);
       const durationMins = Math.round(event.duration / 60000);
       const effectLines = event.effects
         .map((e) => `• ${e.type.replace(/_/g, " ")}: ×${e.value}`)
         .join("\n");
       return ctx.editReply(
         ui()
-          .color(config.colors.success)
+          .color(config.colors.default)
           .title(`🎪 Event Started: ${event.name}`)
-          .text(event.description)
+          .body(event.description)
           .divider()
           .text(
             `**Effects:**\n${effectLines}\n\n**Duration:** ${durationMins} minutes`,
           )
-          .footer("Players will see this event via /event")
+          .divider()
+          .text(`Guild announcement sent to servers with event notifications enabled!`)
+          .footer("Use /event to see details")
           .build() as any,
       );
     }

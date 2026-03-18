@@ -19,6 +19,7 @@ export default {
     "/settings",
     "/settings leaderboard <show|hide>",
     "/settings hut-notifications <on|off>",
+    "/settings event-notifications <on|off>",
   ],
   options: [
     {
@@ -56,6 +57,23 @@ export default {
       ],
     },
     {
+      name: "event-notifications",
+      description: "Toggle fishing event announcements.",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "state",
+          description: "Turn event notifications on or off.",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+          choices: [
+            { name: "On — see event announcements", value: "on" },
+            { name: "Off — no event announcements", value: "off" },
+          ],
+        },
+      ],
+    },
+    {
       name: "view",
       description: "View your current settings.",
       type: ApplicationCommandOptionType.Subcommand,
@@ -65,7 +83,6 @@ export default {
     const sub = args.getSubcommand();
 
     if (sub === "view") {
-      await ctx.deferReply({ flags: MessageFlags.Ephemeral });
       const profile = await getOrCreateProfile(ctx.user.id);
       return ctx.editReply(
         ui()
@@ -85,14 +102,20 @@ export default {
                 ? "On — you'll receive a DM when your hut is full."
                 : "Off — no DM notifications for your hut.",
             ),
+            ui.item(
+              "🎪 Event Notifications",
+              (profile as any).eventNotifications
+                ? "On — you'll see event announcements in your guild."
+                : "Off — no event announcements.",
+            ),
           ])
+          .divider()
           .footer("Use /settings <option> to change a setting.")
           .build() as any,
       );
     }
 
     if (sub === "leaderboard") {
-      await ctx.deferReply({ flags: MessageFlags.Ephemeral });
       const visibility = args.getString("visibility", true);
       const hidden = visibility === "hide";
 
@@ -115,7 +138,6 @@ export default {
     }
 
     if (sub === "hut-notifications") {
-      await ctx.deferReply({ flags: MessageFlags.Ephemeral });
       const state = args.getString("state", true);
       const enabled = state === "on";
 
@@ -132,6 +154,28 @@ export default {
             enabled
               ? "Hut notifications are now **on**. You'll receive a DM when your hut is full."
               : "Hut notifications are now **off**. No more DMs for your hut.",
+          )
+          .build() as any,
+      );
+    }
+
+    if (sub === "event-notifications") {
+      const state = args.getString("state", true);
+      const enabled = state === "on";
+
+      await db
+        .update(fishingProfile)
+        .set({ eventNotifications: enabled } as any)
+        .where(eq(fishingProfile.userId, ctx.user.id));
+
+      return ctx.editReply(
+        ui()
+          .color(config.colors.default)
+          .title("⚙️ Event Notifications Updated")
+          .text(
+            enabled
+              ? "Event notifications are now **on**. You'll see fishing event announcements in your guild."
+              : "Event notifications are now **off**. No more event announcements.",
           )
           .build() as any,
       );

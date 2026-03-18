@@ -1,7 +1,8 @@
 import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType   MessageFlags,
+} from "discord.js";
 
 export default {
   name: "serverinfo",
@@ -10,7 +11,6 @@ export default {
   usage: ["/serverinfo"],
   options: [],
   run: async ({ ctx }) => {
-    await ctx.deferReply();
 
     const guild = ctx.guild!;
     await guild.fetch();

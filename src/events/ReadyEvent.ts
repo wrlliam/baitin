@@ -50,7 +50,7 @@ export default {
     setInterval(updateStatus, 60 * 1000); // check every minute
 
     // Start random event scheduler
-    startEventScheduler();
+    startEventScheduler(app as unknown as Client);
 
     // Hut catches every 5 minutes
     setInterval(() => runHutCron(app as unknown as Client), 5 * 60 * 1000);
@@ -59,6 +59,6 @@ export default {
     setInterval(() => settleExpiredAuctions(), 60 * 1000);
 
     // Scheduled events (Morning Rush) every 1 minute
-    setInterval(() => checkScheduledEvents(), 60 * 1000);
+    setInterval(() => checkScheduledEvents(app as unknown as Client), 60 * 1000);
   },
 } as Event<keyof ClientEvents>;

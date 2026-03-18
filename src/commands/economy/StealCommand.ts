@@ -5,6 +5,7 @@ import { attemptSteal } from "@/modules/fishing/steal";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 export default {
@@ -21,7 +22,6 @@ export default {
     },
   ],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const target = args.getUser("user", true);
 
     if (target.id === ctx.user.id) {

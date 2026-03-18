@@ -30,6 +30,7 @@ import { eq } from "drizzle-orm";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 export default {
@@ -187,7 +188,6 @@ export default {
     return ctx.respond([]);
   },
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
     const sub = args.getSubcommand();
     let hutData = await getHut(ctx.user.id);
 

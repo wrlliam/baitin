@@ -15,7 +15,6 @@ export default {
   usage: ["/cast"],
   options: [],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply();
 
     const canFishResult = await canFish(ctx.user.id);
     if (!canFishResult.ok) {

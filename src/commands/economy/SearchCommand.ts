@@ -44,7 +44,6 @@ export default {
   usage: ["/search"],
   options: [],
   run: async ({ ctx }) => {
-    await ctx.deferReply();
 
     const cooldown = await checkCooldown(ctx.user.id, "search");
     if (!cooldown.ok) {

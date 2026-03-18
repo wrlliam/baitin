@@ -5,6 +5,7 @@ import { addCoins, subtractCoins } from "@/modules/fishing/economy";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  MessageFlags,
 } from "discord.js";
 
 const MAX_BET = 10_000;
@@ -35,7 +36,6 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    await ctx.deferReply();
 
     const amount = args.getInteger("amount", true);
     const side = args.getString("side", true) as "heads" | "tails";
