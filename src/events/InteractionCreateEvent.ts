@@ -83,9 +83,9 @@ export default {
         try {
           const content = `${config.emojis.cross} Something went wrong running \`/${cmdName}\`. Please try again.`;
           if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({ content });
+            await interaction.editReply({ content }).catch(() => {});
           } else {
-            await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
           }
         } catch {}
       }

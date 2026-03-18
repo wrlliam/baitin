@@ -20,10 +20,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-  ContainerBuilder,
   MessageFlags,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
 } from "discord.js";
 import { capitalise } from "@/utils";
 
@@ -88,27 +85,13 @@ function buildInventoryContainer(
   nextTier: (typeof sackTiers)[number] | undefined,
   tierName: string,
   tierEmoji: string,
-): ContainerBuilder {
+) {
   const grouped: Record<string, typeof inventory> = {};
   for (const row of inventory) {
     const cat = row.itemType;
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(row);
   }
-
-  const sections = CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).map(
-    (cat) => {
-      const lines = grouped[cat].map((row) => {
-        const item = allItems.get(row.itemId);
-        if (!item) return `\`${row.itemId}\` ×${row.quantity}`;
-        const sellPrice = Math.floor(
-          item.price * config.fishing.sellPriceMultiplier,
-        );
-        return `${item.emoji} **${item.name}** ×${row.quantity} \`sell: ${sellPrice} ${config.emojis.coin}\``;
-      });
-      return `**${capitalise(cat)}**\n${lines.join("\n")}`;
-    },
-  );
 
   const footerParts = [capacityBar(used, capacity)];
   if (nextTier) {
@@ -122,38 +105,30 @@ function buildInventoryContainer(
   const builder = ui()
     .color(config.colors.default)
     .title(`${tierEmoji} Your ${tierName}`)
-    .body(sections.join("\n\n").slice(0, 3000) || "Empty")
-    .footer(footerParts.join(" • "));
+    .divider();
 
-  return (builder as any)._container as ContainerBuilder;
-}
-
-function buildSelectMenu(inventory: Awaited<ReturnType<typeof getInventory>>) {
-  const options = inventory.slice(0, 25).map((row) => {
-    const item = allItems.get(row.itemId);
-    const sellPrice = item
-      ? Math.floor(item.price * config.fishing.sellPriceMultiplier)
-      : 0;
-    const label = item
-      ? `${item.name} ×${row.quantity}`
-      : `${row.itemId} ×${row.quantity}`;
-    const description = item
-      ? `${item.rarity} · sell: ${sellPrice} ${config.emojis.coin} each`
-      : `sell: ${sellPrice} each`;
-    return new StringSelectMenuOptionBuilder()
-      .setLabel(label.slice(0, 100))
-      .setValue(row.itemId)
-      .setDescription(description.slice(0, 100))
-      .setEmoji(item?.emoji?.replace(/<a?:(\w+):(\d+)>/, "$1") ?? "📦");
+  CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).forEach((cat) => {
+    grouped[cat].forEach((row) => {
+      const item = allItems.get(row.itemId);
+      if (!item) return;
+      const sellPrice = Math.floor(
+        item.price * config.fishing.sellPriceMultiplier,
+      );
+      builder.section(
+        `${item.emoji} **${item.name}**\n-# ×${row.quantity} · ${item.rarity}`,
+        new ButtonBuilder()
+          .setCustomId(`sack_sell_${row.itemId}`)
+          .setLabel(`${sellPrice} ${config.emojis.coin}`)
+          .setStyle(ButtonStyle.Danger),
+      );
+    });
   });
 
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId("sack_item_select")
-      .setPlaceholder("Select an item to sell...")
-      .addOptions(options),
-  );
+  builder.footer(footerParts.join(" • "));
+
+  return builder.build();
 }
+
 
 export default {
   name: "sack",
@@ -202,21 +177,15 @@ export default {
         );
       }
 
-      const invPayload = {
-        flags: MessageFlags.IsComponentsV2,
-        components: [
-          buildInventoryContainer(
-            inventory,
-            used,
-            capacity,
-            profile,
-            nextTier,
-            tierName,
-            tierEmoji,
-          ),
-          buildSelectMenu(inventory),
-        ],
-      };
+      const invPayload = buildInventoryContainer(
+        inventory,
+        used,
+        capacity,
+        profile,
+        nextTier,
+        tierName,
+        tierEmoji,
+      );
 
       const message = await ctx.editReply(invPayload as any);
 
@@ -229,10 +198,10 @@ export default {
 
       collector.on("collect", async (interaction) => {
         if (
-          interaction.componentType === ComponentType.StringSelect &&
-          interaction.customId === "sack_item_select"
+          interaction.componentType === ComponentType.Button &&
+          interaction.customId.startsWith("sack_sell_")
         ) {
-          selectedItemId = interaction.values[0];
+          selectedItemId = interaction.customId.replace("sack_sell_", "");
           const itemRow = (await getInventory(ctx.user.id)).find(
             (r) => r.itemId === selectedItemId,
           );
@@ -240,21 +209,17 @@ export default {
 
           if (!item || !itemRow) {
             const freshInv = await getInventory(ctx.user.id);
-            await interaction.update({
-              flags: MessageFlags.IsComponentsV2,
-              components: [
-                buildInventoryContainer(
-                  freshInv,
-                  await getItemCount(ctx.user.id),
-                  capacity,
-                  profile,
-                  nextTier,
-                  tierName,
-                  tierEmoji,
-                ),
-                buildSelectMenu(freshInv),
-              ],
-            } as any);
+            await interaction.update(
+              buildInventoryContainer(
+                freshInv,
+                await getItemCount(ctx.user.id),
+                capacity,
+                profile,
+                nextTier,
+                tierName,
+                tierEmoji,
+              ) as any,
+            );
             return;
           }
 
@@ -302,38 +267,29 @@ export default {
             const freshUsed = await getItemCount(ctx.user.id);
 
             if (freshInv.length === 0) {
-              await interaction.update({
-                flags: MessageFlags.IsComponentsV2,
-                components: [
-                  (
-                    ui()
-                      .color(config.colors.default)
-                      .title(`${tierEmoji} Your ${tierName}`)
-                      .body("Your sack is now empty!")
-                      .footer(capacityBar(0, capacity))
-                      .build() as any
-                  ).components[0],
-                ],
-              } as any);
+              await interaction.update(
+                ui()
+                  .color(config.colors.default)
+                  .title(`${tierEmoji} Your ${tierName}`)
+                  .body("Your sack is now empty!")
+                  .footer(capacityBar(0, capacity))
+                  .build() as any,
+              );
               collector.stop();
               return;
             }
 
-            await interaction.update({
-              flags: MessageFlags.IsComponentsV2,
-              components: [
-                buildInventoryContainer(
-                  freshInv,
-                  freshUsed,
-                  capacity,
-                  profile,
-                  nextTier,
-                  tierName,
-                  tierEmoji,
-                ),
-                buildSelectMenu(freshInv),
-              ],
-            } as any);
+            await interaction.update(
+              buildInventoryContainer(
+                freshInv,
+                freshUsed,
+                capacity,
+                profile,
+                nextTier,
+                tierName,
+                tierEmoji,
+              ) as any,
+            );
             return;
           }
 
@@ -371,19 +327,14 @@ export default {
             );
 
             if (freshInv.length === 0) {
-              await message.edit({
-                flags: MessageFlags.IsComponentsV2,
-                components: [
-                  (
-                    ui()
-                      .color(config.colors.default)
-                      .title(`${tierEmoji} Your ${tierName}`)
-                      .body("Your sack is now empty!")
-                      .footer(capacityBar(0, capacity))
-                      .build() as any
-                  ).components[0],
-                ],
-              } as any);
+              await message.edit(
+                ui()
+                  .color(config.colors.default)
+                  .title(`${tierEmoji} Your ${tierName}`)
+                  .body("Your sack is now empty!")
+                  .footer(capacityBar(0, capacity))
+                  .build() as any,
+              );
               collector.stop();
               return;
             }
@@ -426,21 +377,17 @@ export default {
               }
             } else {
               selectedItemId = null;
-              await message.edit({
-                flags: MessageFlags.IsComponentsV2,
-                components: [
-                  buildInventoryContainer(
-                    freshInv,
-                    freshUsed,
-                    capacity,
-                    profile,
-                    nextTier,
-                    tierName,
-                    tierEmoji,
-                  ),
-                  buildSelectMenu(freshInv),
-                ],
-              } as any);
+              await message.edit(
+                buildInventoryContainer(
+                  freshInv,
+                  freshUsed,
+                  capacity,
+                  profile,
+                  nextTier,
+                  tierName,
+                  tierEmoji,
+                ) as any,
+              );
             }
             return;
           }

@@ -1,8 +1,8 @@
-import { ActivityType, type ClientEvents, type Client } from "discord.js";
+import { ActivityType, PresenceUpdateStatus, type ClientEvents, type Client } from "discord.js";
 import type { Event } from "../core/typings";
 import { app } from "..";
 import { info } from "../utils/logger";
-import { startEventScheduler } from "../modules/fishing/events";
+import { startEventScheduler, getActiveEvent } from "../modules/fishing/events";
 import { checkScheduledEvents } from "../modules/fishing/events";
 import { runHutCron } from "../modules/fishing/hut";
 import { settleExpiredAuctions } from "../modules/fishing/market";
@@ -26,16 +26,28 @@ const STATUSES = [
   "🌊 vibes only, no fishing required",
 ];
 
-function rotatestatus() {
-  const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
-  app.user?.setActivity({ name: status, state: status, type: ActivityType.Custom });
+async function updateStatus() {
+  const event = await getActiveEvent();
+  if (event) {
+    const text = `🎪 ${event.name}`;
+    app.user?.setPresence({
+      status: PresenceUpdateStatus.DoNotDisturb,
+      activities: [{ name: text, state: text, type: ActivityType.Custom }],
+    });
+  } else {
+    const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
+    app.user?.setPresence({
+      status: PresenceUpdateStatus.Online,
+      activities: [{ name: status, state: status, type: ActivityType.Custom }],
+    });
+  }
 }
 
 export default {
   name: "clientReady",
   run: () => {
-    rotatestatus();
-    setInterval(rotatestatus, 1000 * 60 * 60); // hourly
+    updateStatus();
+    setInterval(updateStatus, 60 * 1000); // check every minute
 
     // Start random event scheduler
     startEventScheduler();
