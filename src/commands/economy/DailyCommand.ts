@@ -6,7 +6,7 @@ import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
 import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COOLDOWN_SECS = 86400; // 24 hours
-const BASE_REWARD = 500;
+const BASE_REWARD = 125;
 const LEVEL_BONUS = 25;
 
 export default {
