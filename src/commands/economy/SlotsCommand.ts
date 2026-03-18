@@ -2,8 +2,7 @@ import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, subtractCoins } from "@/modules/fishing/economy";
-import { ApplicationCommandType   MessageFlags,
-} from "discord.js";
+import { ApplicationCommandType } from "discord.js";
 
 const COST = 50;
 const SYMBOLS = ["🐟", "🦐", "🦞", "🐡", "💎"];

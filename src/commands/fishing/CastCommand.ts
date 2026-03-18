@@ -15,7 +15,6 @@ export default {
   usage: ["/cast"],
   options: [],
   run: async ({ args, client, ctx }) => {
-
     const canFishResult = await canFish(ctx.user.id);
     if (!canFishResult.ok) {
       const remainingMs = canFishResult.remaining;
@@ -53,9 +52,15 @@ export default {
       const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
       extraBody += `\n\n🔥 **${fishedResult.streakDay}-day streak!** +${bonusPct}% XP & coins bonus.`;
     }
-    if (fishedResult.newAchievements && fishedResult.newAchievements.length > 0) {
+    if (
+      fishedResult.newAchievements &&
+      fishedResult.newAchievements.length > 0
+    ) {
       const achLines = fishedResult.newAchievements
-        .map((a) => `${a.emoji} **${a.name}** — ${a.description} (+${a.coinReward}${config.emojis.coin})`)
+        .map(
+          (a) =>
+            `${a.emoji} **${a.name}** — ${a.description} (+${a.coinReward}${config.emojis.coin})`,
+        )
         .join("\n");
       extraBody += `\n\n🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**\n${achLines}`;
     }
@@ -63,37 +68,47 @@ export default {
     const castResult = ui()
       .color(config.colors.default)
       .title(`${fishedResult.item.emoji} ${fishedResult.item.name}`)
-      .body(`*${fishedResult.item.description}*`)
-      .divider()
-      .text(
-        `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`
+      .body(
+        `*${fishedResult.item.description}*\n\n
+You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
       )
       .divider()
       .text(
-        `${config.emojis.coin} **Coins:** +${fishedResult.coinsGained?.toLocaleString() ?? "0"}\n⭐ **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`
+        `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`,
+      )
+      .text(
+        `⭐ **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`,
       )
       .divider();
 
     if (fishedResult.rodBroke) {
-      castResult.text(
-        "⚠️ **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod."
-      ).divider();
+      castResult
+        .text(
+          "⚠️ **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.",
+        )
+        .divider();
     }
 
     if (fishedResult.streakBonus && fishedResult.streakDay) {
       const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
-      castResult.text(
-        `🔥 **${fishedResult.streakDay}-day Streak!** +${bonusPct}% XP & coins bonus.`
-      ).divider();
+      castResult
+        .text(
+          `🔥 **${fishedResult.streakDay}-day Streak!** +${bonusPct}% XP & coins bonus.`,
+        )
+        .divider();
     }
 
-    if (fishedResult.newAchievements && fishedResult.newAchievements.length > 0) {
+    if (
+      fishedResult.newAchievements &&
+      fishedResult.newAchievements.length > 0
+    ) {
       const achLines = fishedResult.newAchievements
         .map((a) => `${a.emoji} **${a.name}**\n-# ${a.description}`)
         .join("\n");
       castResult
-        .text(`🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`)
-        .divider()
+        .text(
+          `🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`,
+        )
         .text(achLines)
         .divider();
     }

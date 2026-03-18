@@ -20,6 +20,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -35,7 +36,7 @@ const FILTER_CHOICES = [
   { label: "Rod", value: "rod", emoji: "🎣" },
 ] as const;
 
-async function buildBrowsePage(page: number, category?: string) {
+async function buildBrowsePage(page: number, category?: string, userId: string = "") {
   const [listings, total] = await Promise.all([
     getListings({ category, page, pageSize: PAGE_SIZE }),
     getListingCount({ category }),
@@ -74,7 +75,7 @@ async function buildBrowsePage(page: number, category?: string) {
 
   const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`mkt:nav:${page - 1}:${catStr}`)
+      .setCustomId(`mkt:nav:${page - 1}:${catStr}:${userId}`)
       .setLabel("◀ Prev")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page <= 1),
@@ -84,7 +85,7 @@ async function buildBrowsePage(page: number, category?: string) {
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
     new ButtonBuilder()
-      .setCustomId(`mkt:nav:${page + 1}:${catStr}`)
+      .setCustomId(`mkt:nav:${page + 1}:${catStr}:${userId}`)
       .setLabel("Next ▶")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages),
@@ -93,7 +94,7 @@ async function buildBrowsePage(page: number, category?: string) {
   const filterRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     FILTER_CHOICES.map(({ label, value, emoji }) =>
       new ButtonBuilder()
-        .setCustomId(`mkt:filter:${value}`)
+        .setCustomId(`mkt:filter:${value}:${userId}`)
         .setLabel(label)
         .setEmoji(emoji)
         .setStyle(value === catStr ? ButtonStyle.Primary : ButtonStyle.Secondary),
@@ -107,6 +108,7 @@ export default {
   name: "market",
   description: "Trade items with other players.",
   type: ApplicationCommandType.ChatInput,
+  defer: "none",
   usage: ["/market browse", "/market list", "/market cancel"],
   options: [
     {
@@ -216,13 +218,13 @@ export default {
     const sub = args.getSubcommand();
 
     if (sub === "browse") {
-      await ctx.deferReply();
+      await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
       const categoryArg = args.getString("filter") ?? undefined;
       const pageArg = args.getInteger("page") ?? 1;
       let curPage = pageArg;
       let curCategory = categoryArg;
 
-      const { embed, navRow, filterRow } = await buildBrowsePage(curPage, curCategory);
+      const { embed, navRow, filterRow } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
       const message = await ctx.editReply(embed.build({ rows: [navRow, filterRow] }) as any);
 
       const collector = message.createMessageComponentCollector({
@@ -235,18 +237,20 @@ export default {
         const action = parts[1];
 
         if (action === "nav") {
-          if (i.user.id !== ctx.user.id) return i.deferUpdate();
+          const buttonUserId = parts[4];
+          if (i.user.id !== buttonUserId) return i.deferUpdate();
           curPage = parseInt(parts[2], 10);
           curCategory = parts[3] === "all" ? undefined : parts[3];
-          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
           return i.update(e.build({ rows: [nr, fr] }) as any);
         }
 
         if (action === "filter") {
-          if (i.user.id !== ctx.user.id) return i.deferUpdate();
+          const buttonUserId = parts[3];
+          if (i.user.id !== buttonUserId) return i.deferUpdate();
           curCategory = parts[2] === "all" ? undefined : parts[2];
           curPage = 1;
-          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
           return i.update(e.build({ rows: [nr, fr] }) as any);
         }
 
@@ -256,7 +260,7 @@ export default {
           if (!result.success) {
             return i.reply({ content: `${config.emojis.cross} ${result.error}`, ephemeral: true });
           }
-          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+          const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
           return i.update(e.build({ rows: [nr, fr] }) as any);
         }
 
@@ -292,7 +296,7 @@ export default {
                 content: `${config.emojis.tick} Bid of **${amount.toLocaleString()}** ${config.emojis.coin} placed!`,
                 ephemeral: true,
               });
-              const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory);
+              const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
               await message.edit(e.build({ rows: [nr, fr] }) as any);
             }
           } catch {

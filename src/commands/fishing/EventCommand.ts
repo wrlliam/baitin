@@ -2,8 +2,7 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { getActiveEvent } from "@/modules/fishing/events";
 import config from "@/config";
-import { ApplicationCommandType   MessageFlags,
-} from "discord.js";
+import { ApplicationCommandType } from "discord.js";
 
 const EFFECT_LABELS: Record<string, string> = {
   xp_multiplier: "XP Multiplier",

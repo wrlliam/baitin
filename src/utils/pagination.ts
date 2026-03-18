@@ -39,24 +39,25 @@ export async function paginate(
     const atStart = currentPage === 0;
     const atEnd = currentPage === pages.length - 1;
 
+    const userId = interaction.user.id;
     const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId("page_start")
+        .setCustomId(`page_start_${userId}`)
         .setEmoji("⏮️")
         .setStyle(atStart ? ButtonStyle.Secondary : ButtonStyle.Primary)
         .setDisabled(atStart),
       new ButtonBuilder()
-        .setCustomId("page_back")
+        .setCustomId(`page_back_${userId}`)
         .setEmoji("◀️")
         .setStyle(atStart ? ButtonStyle.Secondary : ButtonStyle.Primary)
         .setDisabled(atStart),
       new ButtonBuilder()
-        .setCustomId("page_forward")
+        .setCustomId(`page_forward_${userId}`)
         .setEmoji("▶️")
         .setStyle(atEnd ? ButtonStyle.Secondary : ButtonStyle.Primary)
         .setDisabled(atEnd),
       new ButtonBuilder()
-        .setCustomId("page_finish")
+        .setCustomId(`page_finish_${userId}`)
         .setEmoji("⏭️")
         .setStyle(atEnd ? ButtonStyle.Secondary : ButtonStyle.Primary)
         .setDisabled(atEnd),
@@ -64,7 +65,7 @@ export async function paginate(
 
     if (hasLabels) {
       const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId("page_select")
+        .setCustomId(`page_select_${userId}`)
         .setPlaceholder("Navigate to a specific category...")
         .addOptions(
           pages.map((page, index) => {
@@ -122,22 +123,17 @@ export async function paginate(
     await i.deferUpdate();
 
     if (i.isButton()) {
-      switch (i.customId) {
-        case "page_start":
-          currentPage = 0;
-          break;
-        case "page_back":
-          currentPage--;
-          break;
-        case "page_forward":
-          currentPage++;
-          break;
-        case "page_finish":
-          currentPage = pages.length - 1;
-          break;
+      if (i.customId.startsWith("page_start_")) {
+        currentPage = 0;
+      } else if (i.customId.startsWith("page_back_")) {
+        currentPage--;
+      } else if (i.customId.startsWith("page_forward_")) {
+        currentPage++;
+      } else if (i.customId.startsWith("page_finish_")) {
+        currentPage = pages.length - 1;
       }
     } else if (i.isStringSelectMenu()) {
-      if (i.customId === "page_select") {
+      if (i.customId.startsWith("page_select_")) {
         currentPage = parseInt(i.values[0], 10);
       }
     }

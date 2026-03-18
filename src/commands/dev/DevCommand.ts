@@ -715,18 +715,6 @@ export default {
       );
     }
 
-    // event-start → autocomplete event IDs
-    if (sub === "event-start" && focused.name === "event") {
-      return ctx.respond(
-        eventsList
-          .filter(
-            (e) => e.id.includes(value) || e.name.toLowerCase().includes(value),
-          )
-          .slice(0, 25)
-          .map((e) => ({ name: e.name, value: e.id })),
-      );
-    }
-
     return ctx.respond([]);
   },
 
@@ -735,33 +723,75 @@ export default {
 
     // ── event-start ──────────────────────────────────────────────────────
     if (sub === "event-start") {
-      const eventId = args.getString("event", true);
-      const event = eventsList.find((e) => e.id === eventId);
-      if (!event) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} Unknown event ID: \`${eventId}\``,
-        });
-      }
-      await activateEvent(eventId);
-      await broadcastEventAnnouncement(event, client);
-      const durationMins = Math.round(event.duration / 60000);
-      const effectLines = event.effects
-        .map((e) => `• ${e.type.replace(/_/g, " ")}: ×${e.value}`)
-        .join("\n");
-      return ctx.editReply(
+      const active = await getActiveEvent();
+      const select = new StringSelectMenuBuilder()
+        .setCustomId("devevt:select")
+        .setPlaceholder("Choose an event to start…")
+        .addOptions(
+          eventsList.slice(0, 25).map((e) => {
+            const durationMins = Math.round(e.duration / 60000);
+            const effectSummary = e.effects.map((ef) => ef.type).join(", ");
+            return new StringSelectMenuOptionBuilder()
+              .setLabel(e.name)
+              .setValue(e.id)
+              .setDescription(`${durationMins}min · ${effectSummary}`.slice(0, 100))
+              .setDefault(active?.id === e.id);
+          }),
+        );
+
+      const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+
+      const message = await ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title(`🎪 Event Started: ${event.name}`)
-          .body(event.description)
-          .divider()
+          .title("🎪 Start an Event")
           .text(
-            `**Effects:**\n${effectLines}\n\n**Duration:** ${durationMins} minutes`,
+            active
+              ? `Currently active: **${active.name}** — starting another will replace it.`
+              : "No event is currently active.",
           )
-          .divider()
-          .text(`Guild announcement sent to servers with event notifications enabled!`)
-          .footer("Use /event to see details")
-          .build() as any,
+          .footer(`${eventsList.length} events available`)
+          .build({ rows: [selectRow as any] }) as any,
       );
+
+      const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        filter: (i) => i.user.id === ctx.user.id,
+        max: 1,
+        time: 60 * 1000,
+      });
+
+      collector.on("collect", async (i) => {
+        const eventId = i.values[0];
+        const event = eventsList.find((e) => e.id === eventId);
+        if (!event) {
+          return i.update({ content: `${config.emojis.cross} Unknown event.`, components: [] });
+        }
+        await activateEvent(eventId);
+        await broadcastEventAnnouncement(event, client);
+        const durationMins = Math.round(event.duration / 60000);
+        const effectLines = event.effects
+          .map((e) => `• ${e.type.replace(/_/g, " ")}: ×${e.value}`)
+          .join("\n");
+        return i.update(
+          ui()
+            .color(config.colors.success)
+            .title(`🎪 Event Started: ${event.name}`)
+            .text(event.description)
+            .divider()
+            .text(`**Effects:**\n${effectLines}\n\n**Duration:** ${durationMins} minutes`)
+            .footer("Players will see this event via /event")
+            .build() as any,
+        );
+      });
+
+      collector.on("end", (collected) => {
+        if (collected.size === 0) {
+          try { message.edit({ components: [] }); } catch {}
+        }
+      });
+
+      return;
     }
 
     // ── event-stop ───────────────────────────────────────────────────────

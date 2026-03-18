@@ -74,9 +74,10 @@ export default {
       // Auto-defer ASAP to beat Discord's 3-second window
       if (command.defer !== "none") {
         try {
-          await interaction.deferReply(
-            command.defer ? { flags: MessageFlags.Ephemeral } : undefined,
-          );
+          const deferFlags =
+            MessageFlags.IsComponentsV2 |
+            (command.defer ? MessageFlags.Ephemeral : 0);
+          await interaction.deferReply({ flags: deferFlags });
         } catch {
           // Interaction already expired — nothing we can do
           return;

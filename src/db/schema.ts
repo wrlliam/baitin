@@ -149,6 +149,13 @@ export const eggIncubator = pgTable("egg_incubator", {
   failed: boolean("failed").default(false).notNull(),
 });
 
+export const guildSettings = pgTable("guild_settings", {
+  id: text("id").primaryKey(),
+  guildId: text("guild_id").unique().notNull(),
+  eventNotificationChannelId: text("event_notification_channel_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 export type EggIncubatorSelect = typeof eggIncubator.$inferSelect;
 export type EggIncubatorInsert = typeof eggIncubator.$inferInsert;
 

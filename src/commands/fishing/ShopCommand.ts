@@ -131,13 +131,13 @@ export default {
       }
 
       if (interaction.componentType === ComponentType.Button) {
-        if (interaction.customId === "shop_prev") {
+        if (interaction.customId.startsWith("shop_prev_")) {
           page = Math.max(0, page - 1);
           await interaction.update(buildShopPayload(category, entries, page, ctx.user.id) as any);
           return;
         }
 
-        if (interaction.customId === "shop_next") {
+        if (interaction.customId.startsWith("shop_next_")) {
           const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
           page = Math.min(totalPages - 1, page + 1);
           await interaction.update(buildShopPayload(category, entries, page, ctx.user.id) as any);
@@ -145,7 +145,7 @@ export default {
         }
 
         if (interaction.customId.startsWith("shop_buy_")) {
-          const itemId = interaction.customId.replace("shop_buy_", "");
+          const itemId = interaction.customId.replace(/shop_buy_(.*)_\d+$/, "$1");
           const entry = entries.find((e) => e.item.id === itemId);
           if (!entry) return;
 
@@ -163,8 +163,8 @@ export default {
             .build();
 
           const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("shop_confirm").setLabel("🛒 Buy").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("shop_cancel").setLabel("✗ Cancel").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId(`shop_confirm_${ctx.user.id}`).setLabel("🛒 Buy").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`shop_cancel_${ctx.user.id}`).setLabel("✗ Cancel").setStyle(ButtonStyle.Secondary),
           );
 
           await interaction.reply({
@@ -191,7 +191,7 @@ export default {
             return;
           }
 
-          if (confirmI.customId === "shop_cancel") {
+          if (confirmI.customId.startsWith("shop_cancel_")) {
             await confirmI.update({ components: [] });
             return;
           }

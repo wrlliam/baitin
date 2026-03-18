@@ -257,7 +257,6 @@ export default {
     },
   ],
   run: async ({ args, client, ctx }) => {
-    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
     const target = args.getUser("user") ?? ctx.user;
 
     let activeTab: ProfileTab = "overview";

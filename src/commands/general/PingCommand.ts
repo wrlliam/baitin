@@ -11,19 +11,17 @@ export default {
   defer: "none",
   options: [],
   run: async ({ client, ctx }) => {
-    const { resource } = await ctx.reply({
-      content: "Pinging...",
-      withResponse: true,
-    } as any);
-    const roundtrip =
-      resource!.message!.createdTimestamp - ctx.createdTimestamp;
+    const { resource } = await ctx.reply(
+      ui().text("Pinging....").build() as any,
+    );
+
     const ws = client.ws.ping;
 
     return ctx.editReply(
       ui()
         .color(config.colors.default)
         .title("🏓 Pong!")
-        .body(`**Roundtrip:** ${roundtrip}ms\n**WebSocket:** ${ws}ms`)
+        .body(`**WebSocket:** ${ws}ms`)
         .footer("Baitin • /help")
         .build() as any,
     );

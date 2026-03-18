@@ -12,7 +12,7 @@ import {
   MessageFlags,
 } from "discord.js";
 
-const MAX_BET = 50_000;
+const MAX_BET = 250_000;
 
 const WIN_FLAVORS = [
   "Fortune favors the bold — and you're living proof.",
@@ -31,13 +31,13 @@ const LOSE_FLAVORS = [
 ];
 
 export default {
-  name: "gamble",
+  name: "blackjack",
   description: "Bet your coins for a 50/50 shot at doubling up.",
   type: ApplicationCommandType.ChatInput,
-  usage: ["/gamble <amount>"],
+  usage: ["/blackjack <price>"],
   options: [
     {
-      name: "amount",
+      name: "price",
       description: "How many coins to gamble.",
       type: ApplicationCommandOptionType.Integer,
       required: true,
@@ -46,8 +46,7 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-
-    const amount = args.getInteger("amount", true);
+    const amount = args.getInteger("price", true);
 
     const paid = await subtractCoins(ctx.user.id, amount);
     if (!paid) {

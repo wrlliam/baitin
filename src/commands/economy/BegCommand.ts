@@ -3,8 +3,7 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
-import { ApplicationCommandType   MessageFlags,
-} from "discord.js";
+import { ApplicationCommandType } from "discord.js";
 
 const COOLDOWN_SECS = 1800; // 30 minutes
 
