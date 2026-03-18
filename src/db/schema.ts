@@ -42,7 +42,6 @@ export const fishingProfile = pgTable("fishing_profile", {
   lastFishDate: date("last_fish_date"),
   // Settings
   hutNotifications: boolean("hut_notifications").default(true).notNull(),
-  eventNotifications: boolean("event_notifications").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
