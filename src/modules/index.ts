@@ -32,7 +32,7 @@ export abstract class Module {
       return {
         value: false,
         response: {
-          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+          flags: MessageFlags.Ephemeral,
           components: payload.components,
         } as any,
       };
@@ -47,7 +47,6 @@ export abstract class Module {
       `${config.emojis.cross} It appears that this command is missing its logic? Please try again later.`,
     );
     return {
-      flags: MessageFlags.IsComponentsV2,
       components: payload.components,
     } as any;
   }

@@ -34,11 +34,11 @@ export default {
             `You need at least **${COST}** ${config.emojis.coin} to spin the slots.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        flags: MessageFlags.Ephemeral,
       } as any);
     }
 
-    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    await ctx.deferReply(src/commands/economy/SlotsCommand.ts);
 
     const r1 = spin();
     const r2 = spin();

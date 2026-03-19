@@ -6,8 +6,13 @@ import { fishingProfile } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import config from "@/config";
 import {
+  ActionRowBuilder,
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
 } from "discord.js";
 
 export default {
@@ -65,21 +70,73 @@ export default {
     const sub = args.getSubcommand();
 
     if (sub === "view") {
-      const profile = await getOrCreateProfile(ctx.user.id);
-      return ctx.editReply(
+      const buildPanel = (p: Awaited<ReturnType<typeof getOrCreateProfile>>) =>
         ui()
           .color(config.colors.default)
           .title("⚙️ Your Settings")
           .divider()
-          .text(
-            `📊 **Leaderboard** — ${profile.leaderboardHidden ? "Hidden — you won't appear on the leaderboard." : "Visible — your profile is shown on the leaderboard."}\n` +
-            `🏠 **Hut Notifications** — ${profile.hutNotifications ? "On — you'll receive a DM when your hut is full." : "Off — no DM notifications for your hut."}`,
+          .section(
+            `📊 **Leaderboard**\n${p.leaderboardHidden ? "Hidden — you won't appear on the leaderboard." : "Visible — your profile is shown on the leaderboard."}`,
+            new ButtonBuilder()
+              .setCustomId(`settings:toggle:leaderboard:${ctx.user.id}`)
+              .setLabel(p.leaderboardHidden ? "👁️ Show Me" : "👁️ Hide Me")
+              .setStyle(p.leaderboardHidden ? ButtonStyle.Success : ButtonStyle.Danger),
           )
           .divider()
-          .text(`🎪 **Event Announcements** — Controlled by server admins with \`/setup event-channel\``)
-          .footer("Use /settings <option> to change a setting.")
-          .build() as any,
-      );
+          .section(
+            `🏠 **Hut Notifications**\n${p.hutNotifications ? "On — you'll receive a DM when your hut is full." : "Off — no DM notifications for your hut."}`,
+            new ButtonBuilder()
+              .setCustomId(`settings:toggle:hutnotif:${ctx.user.id}`)
+              .setLabel(p.hutNotifications ? "🔕 Turn Off" : "🔔 Turn On")
+              .setStyle(p.hutNotifications ? ButtonStyle.Danger : ButtonStyle.Success),
+          )
+          .divider()
+          .text(
+            `🎪 **Event Announcements** — Controlled by server admins with \`/setup event-channel\``,
+          )
+          .footer("Click a button to toggle a setting.")
+          .build();
+
+      const profile = await getOrCreateProfile(ctx.user.id);
+      const message = await ctx.editReply(buildPanel(profile) as any);
+
+      const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        filter: (i) => i.user.id === ctx.user.id,
+        time: 5 * 60_000,
+      });
+
+      collector.on("collect", async (i) => {
+        if (i.customId === `settings:toggle:leaderboard:${ctx.user.id}`) {
+          const current = await getOrCreateProfile(ctx.user.id);
+          await db
+            .update(fishingProfile)
+            .set({ leaderboardHidden: !current.leaderboardHidden })
+            .where(eq(fishingProfile.userId, ctx.user.id));
+          const updated = await getOrCreateProfile(ctx.user.id);
+          await i.update(buildPanel(updated) as any);
+          return;
+        }
+
+        if (i.customId === `settings:toggle:hutnotif:${ctx.user.id}`) {
+          const current = await getOrCreateProfile(ctx.user.id);
+          await db
+            .update(fishingProfile)
+            .set({ hutNotifications: !current.hutNotifications })
+            .where(eq(fishingProfile.userId, ctx.user.id));
+          const updated = await getOrCreateProfile(ctx.user.id);
+          await i.update(buildPanel(updated) as any);
+          return;
+        }
+      });
+
+      collector.on("end", async () => {
+        try {
+          await message.edit({ components: [] });
+        } catch {}
+      });
+
+      return;
     }
 
     if (sub === "leaderboard") {

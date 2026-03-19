@@ -168,7 +168,7 @@ export default {
           );
 
           await interaction.reply({
-            flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+            flags: MessageFlags.Ephemeral,
             components: [...detailPayload.components, confirmRow],
           } as any);
 

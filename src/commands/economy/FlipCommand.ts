@@ -51,11 +51,11 @@ export default {
             `You don't have **${amount.toLocaleString()}** ${config.emojis.coin} to bet.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        flags: MessageFlags.Ephemeral,
       } as any);
     }
 
-    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    await ctx.deferReply(src/commands/economy/FlipCommand.ts);
 
     const result: "heads" | "tails" = Math.random() < 0.5 ? "heads" : "tails";
     const won = result === side;

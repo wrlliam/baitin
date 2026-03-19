@@ -151,7 +151,7 @@ export default {
       const command = client.commands.get(commandName.toLowerCase());
       if (!command) {
         return ctx.reply({
-          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+          flags: MessageFlags.Ephemeral,
           components: ui()
             .color(config.colors.default)
             .title("Command Not Found")
@@ -241,7 +241,7 @@ export default {
           .build();
 
         await i.reply({
-          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+          flags: MessageFlags.Ephemeral,
           components: infoPayload.components,
         } as any);
       }

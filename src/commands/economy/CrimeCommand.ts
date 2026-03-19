@@ -38,11 +38,11 @@ export default {
             `The game warden is still watching you. Try again <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+        flags: MessageFlags.Ephemeral,
       } as any);
     }
 
-    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    await ctx.deferReply(src/commands/economy/CrimeCommand.ts);
 
     const crime = CRIMES[Math.floor(Math.random() * CRIMES.length)];
     await setCooldown(ctx.user.id, "crime", COOLDOWN_SECS);

@@ -259,7 +259,7 @@ export default {
           );
 
           await interaction.update({
-            flags: MessageFlags.IsComponentsV2,
+            
             components: [...detailContainer.components, sellRow],
           } as any);
           return;
@@ -377,7 +377,7 @@ export default {
                       .setStyle(ButtonStyle.Secondary),
                   );
                 await message.edit({
-                  flags: MessageFlags.IsComponentsV2,
+                  
                   components: [...detailPayload.components, sellRow],
                 } as any);
               }

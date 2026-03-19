@@ -35,7 +35,7 @@ export default {
       });
     }
 
-    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    await ctx.deferReply(src/commands/fishing/CastCommand.ts);
 
     const fishPromise = doFish(ctx.user.id);
 
@@ -125,6 +125,133 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
 
     castResult.footer(tip());
 
-    await ctx.editReply({ content: "", ...castResult.build() } as any);
+    // Build action buttons — Sell for anything with a price, Species for fish only
+    const shouldShowSell = fishedResult.item.price > 0;
+    const shouldShowSpecies = fishedResult.item.category === "fish";
+
+    const makeButtons = (disabled: boolean): ButtonBuilder[] => {
+      const btns: ButtonBuilder[] = [];
+      if (shouldShowSell) {
+        btns.push(
+          new ButtonBuilder()
+            .setCustomId(`cast:sell:${fishedResult.item.id}:${ctx.user.id}`)
+            .setLabel("💰 Sell")
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(disabled),
+        );
+      }
+      if (shouldShowSpecies) {
+        btns.push(
+          new ButtonBuilder()
+            .setCustomId(`cast:species:${fishedResult.item.id}:${ctx.user.id}`)
+            .setLabel("📖 Species")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(disabled),
+        );
+      }
+      return btns;
+    };
+
+    const hasButtons = shouldShowSell || shouldShowSpecies;
+
+    const buildPayload = (disabled: boolean) =>
+      castResult.build(
+        hasButtons
+          ? {
+              rows: [
+                new ActionRowBuilder<ButtonBuilder>().addComponents(
+                  ...makeButtons(disabled),
+                ),
+              ],
+            }
+          : undefined,
+      );
+
+    const message = await ctx.editReply({
+      content: "",
+      ...buildPayload(false),
+    } as any);
+
+    if (!hasButtons) return;
+
+    let sold = false;
+
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      filter: (i) => i.user.id === ctx.user.id,
+      time: 120_000,
+    });
+
+    collector.on("collect", async (i) => {
+      if (i.customId.startsWith("cast:sell:")) {
+        if (sold) {
+          await i.reply({
+            flags: MessageFlags.Ephemeral,
+            content: `${config.emojis.cross} You've already sold this catch.`,
+          });
+          return;
+        }
+
+        const result = await sellItem(ctx.user.id, fishedResult.item.id, 1);
+        if (!result.success) {
+          await i.reply({
+            flags: MessageFlags.Ephemeral,
+            content: `${config.emojis.cross} ${result.error}`,
+          });
+          return;
+        }
+
+        sold = true;
+        castResult.footer(
+          `Sold for ${result.coinsGained!.toLocaleString()} ${config.emojis.coin}.`,
+        );
+        await i.update({ content: "", ...buildPayload(true) } as any);
+        collector.stop("sold");
+        return;
+      }
+
+      if (i.customId.startsWith("cast:species:")) {
+        const [stats] = await db
+          .select({
+            total: sql<number>`cast(count(*) as int)`,
+            firstCaught: sql<string | null>`min(${fishingLog.caughtAt})`,
+          })
+          .from(fishingLog)
+          .where(
+            and(
+              eq(fishingLog.userId, ctx.user.id),
+              eq(fishingLog.itemId, fishedResult.item.id),
+            ),
+          );
+
+        const item = fishedResult.item;
+        const total = stats?.total ?? 0;
+        const firstTs = stats?.firstCaught
+          ? Math.floor(new Date(stats.firstCaught).getTime() / 1000)
+          : null;
+
+        await i.reply({
+          flags: MessageFlags.Ephemeral,
+          ...ui()
+            .color(config.colors.default)
+            .title(`${item.emoji} ${item.name}`)
+            .text(`*${item.description}*`)
+            .divider()
+            .text(
+              `**Total Caught:** ${total}\n` +
+                `**First Caught:** ${firstTs ? `<t:${firstTs}:D>` : "Just now"}`,
+            )
+            .build() as any,
+        });
+        return;
+      }
+    });
+
+    collector.on("end", async (_, reason) => {
+      if (reason === "sold") return;
+      try {
+        await message.edit({ content: "", ...buildPayload(true) } as any);
+      } catch {}
+    });
   },
 } as Command;

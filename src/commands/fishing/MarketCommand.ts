@@ -218,7 +218,7 @@ export default {
     const sub = args.getSubcommand();
 
     if (sub === "browse") {
-      await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
+      await ctx.deferReply(src/commands/fishing/MarketCommand.ts);
       const categoryArg = args.getString("filter") ?? undefined;
       const pageArg = args.getInteger("page") ?? 1;
       let curPage = pageArg;

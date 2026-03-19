@@ -2,7 +2,7 @@
  * UI / Display Components Library
  *
  * Unified fluent builder + helpers for Discord.js v14 Components V2 messages.
- * All messages built here require MessageFlags.IsComponentsV2 (handled automatically).
+ * All messages built here use Components V2 (automatically handled by Discord.js v14).
  *
  * Constraints:
  *  - Max 40 nested components per message
@@ -473,7 +473,7 @@ export class UIBuilder {
    */
   build(opts?: { rows?: ActionRowBuilder<any>[] }): UIPayload {
     return {
-      flags: MessageFlags.IsComponentsV2,
+      flags: 0,
       components: [this._container, ...(opts?.rows ?? [])],
     };
   }
@@ -555,7 +555,7 @@ export function notice(kind: NoticeKind, message: string): UIPayload {
   const icon = NOTICE_ICONS[kind];
   const color = NOTICE_COLORS[kind];
   return {
-    flags: MessageFlags.IsComponentsV2,
+    
     components: [container(color, [text(`${icon} ${message}`)])],
   };
 }
