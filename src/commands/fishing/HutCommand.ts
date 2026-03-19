@@ -44,29 +44,35 @@ function buildHutActionRows(userId: string) {
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`hut:collect:${userId}`)
-      .setLabel(`${config.emojis.collect} Collect`)
+      .setEmoji(config.emojis.collect)
+      .setLabel(`Collect`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`hut:inventory:${userId}`)
-      .setLabel(`${config.emojis.inventory} Inventory`)
+      .setEmoji(config.emojis.inventory)
+      .setLabel(`Inventory`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:configure:${userId}`)
-      .setLabel(`${config.emojis.configure} Configure`)
+      .setEmoji(config.emojis.configure)
+      .setLabel(`Configure`)
       .setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:speed:${userId}`)
-      .setLabel(`${config.emojis.up_arrow} Speed`)
+      .setEmoji(config.emojis.up_arrow)
+      .setLabel(`Speed`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:luck:${userId}`)
-      .setLabel(`${config.emojis.up_arrow} Luck`)
+      .setEmoji(config.emojis.up_arrow)
+      .setLabel(`Luck`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:inv:${userId}`)
-      .setLabel(`${config.emojis.up_arrow} Inv`)
+      .setEmoji(config.emojis.up_arrow)
+      .setLabel(`Inv`)
       .setStyle(ButtonStyle.Secondary),
   );
   return [row1, row2] as const;
@@ -135,7 +141,8 @@ async function buildHutInventoryPayload(userId: string) {
     actionBtns.push(
       new ButtonBuilder()
         .setCustomId(`hut:sellall:${userId}`)
-        .setLabel(`${config.emojis.sell} Sell All`)
+        .setEmoji(config.emojis.pouch)
+        .setLabel(`Sell All`)
         .setStyle(ButtonStyle.Danger),
     );
   }
