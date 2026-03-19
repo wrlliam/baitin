@@ -50,21 +50,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-
-  baitin-web:
-    platform: linux/amd64
-    image: "baitin-web"
-    ports:
-      - "5100:3000"
-    environment:
-      BOT_API_URL: "http://fishing.bnhm.dev"
-      NEXT_PUBLIC_DISCORD_INVITE_URL: "https://discord.com/oauth2/authorize?client_id=1483033234689232977&permissions=1513962695871&integration_type=0&scope=bot+applications.commands"
-      NODE_ENV: production
-    depends_on:
-      baitin:
-        condition: service_healthy
-    restart: unless-stopped
-
+    
 volumes:
   postgres_data:
   redis_data:
