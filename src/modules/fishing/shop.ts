@@ -28,8 +28,8 @@ export interface ShopEntry {
 
 // Items in the special category (piggyback on Potion shape)
 const SPECIAL_BUY_PRICES: Record<string, number> = {
-  rod_repair_kit: 2000,
-  hut_permit: 50000,
+  rod_repair_kit: 6000,
+  hut_permit: 150000,
 };
 
 function getDailyStockKey(itemId: string): string {

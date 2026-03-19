@@ -29,30 +29,51 @@ export async function activateEvent(eventId: string): Promise<boolean> {
   return true;
 }
 
+const EFFECT_EMOJIS: Record<string, string> = {
+  xp_multiplier: "📖",
+  catch_rate: "🎣",
+  rarity_boost: "✨",
+  coin_multiplier: "💰",
+};
+
+const EFFECT_LABELS: Record<string, string> = {
+  xp_multiplier: "XP Multiplier",
+  catch_rate: "Catch Rate",
+  rarity_boost: "Rarity Boost",
+  coin_multiplier: "Coin Multiplier",
+};
+
 export async function broadcastEventAnnouncement(
   event: GameEvent,
   client: Client,
 ): Promise<void> {
   const durationMins = Math.round(event.duration / 60000);
   const effectLines = event.effects
-    .map((e) => `• **${e.type.replace(/_/g, " ")}:** ×${e.value}`)
+    .map((e) => {
+      const emoji = EFFECT_EMOJIS[e.type] ?? "•";
+      const label = EFFECT_LABELS[e.type] ?? e.type.replace(/_/g, " ");
+      const isDebuff = e.value < 1;
+      return `${emoji} **${label}:** ×${e.value}${isDebuff ? " ⬇" : ""}`;
+    })
     .join("\n");
-  const entryLine = event.entryFee
-    ? `\n• **Entry Fee:** ${event.entryFee.toLocaleString()} ${config.emojis.coin}`
-    : "";
+
+  const detailLines: string[] = [];
+  detailLines.push(`⏱️ **Duration:** ${durationMins} minutes`);
+  if (event.entryFee) {
+    detailLines.push(`${config.emojis.coin} **Entry Fee:** ${event.entryFee.toLocaleString()} — use \`/event join\``);
+  } else {
+    detailLines.push("🆓 **Entry:** Free — effects apply automatically when you `/cast`");
+  }
 
   const announcement = ui()
     .color(0x2b7fff)
-    .title(`${config.emojis.event} **${event.name}** is LIVE!`)
+    .title(`${config.emojis.event} ${event.name} is LIVE!`)
     .text(event.description)
     .divider()
-    .text(
-      `**Effects:**\n${effectLines}\n\n**Duration:** ${durationMins} minutes${entryLine}`,
-    )
+    .text(effectLines)
     .divider()
-    .text(
-      `Use **\`/event\`** to see details. Admins: use **\`/setup event-channel\`** to set where these go.`,
-    )
+    .text(detailLines.join("\n"))
+    .footer("Use /event info for details • /cast to fish with event effects")
     .build();
 
   // Get all guild settings with configured channels

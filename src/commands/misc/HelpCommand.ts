@@ -10,91 +10,51 @@ import {
   ComponentType,
   MessageFlags,
 } from "discord.js";
+import type CoreBot from "@/core/Core";
 
-type CategoryKey = "general" | "rewards" | "fishing" | "games" | "pvp";
+type CategoryKey = "general" | "economy" | "fishing" | "misc";
 
-const CATEGORIES: Record<
+const CATEGORY_META: Record<
   CategoryKey,
-  { label: string; emoji: string; commands: { name: string; desc: string }[] }
+  { label: string; emoji: string }
 > = {
-  general: {
-    label: "General",
-    emoji: config.emojis.cat_general,
-    commands: [
-      { name: "getting-started", desc: "New? Start here — learn the basics." },
-      { name: "ping", desc: "Check bot and API latency." },
-      { name: "avatar", desc: "View a user's avatar." },
-      { name: "userinfo", desc: "View info about a user." },
-      { name: "serverinfo", desc: "View info about this server." },
-      { name: "8ball", desc: "Ask the magic 8-ball a question." },
-    ],
-  },
-  rewards: {
-    label: "Easy Rewards",
-    emoji: config.emojis.cat_rewards,
-    commands: [
-      { name: "daily", desc: "Claim your daily coin reward." },
-      { name: "weekly", desc: "Claim your weekly coin reward." },
-      { name: "monthly", desc: "Claim your monthly coin reward." },
-      { name: "work", desc: "Work at the docks and earn coins." },
-      { name: "beg", desc: "Beg at the docks for spare change." },
-      { name: "search", desc: "Search around for hidden loot and coins." },
-      { name: "leaderboard", desc: "View the top fishers on the server." },
-      { name: "quests", desc: "View daily & weekly quests for gems." },
-    ],
-  },
-  fishing: {
-    label: "Fishing",
-    emoji: config.emojis.cat_fishing,
-    commands: [
-      { name: "cast", desc: "Cast your line and catch fish." },
-      { name: "sell", desc: "Sell fish from your inventory." },
-      { name: "equip", desc: "Equip a rod or bait." },
-      { name: "shop", desc: "Browse the tackle shop." },
-      { name: "hut", desc: "Manage your fishing hut." },
-      { name: "profile", desc: "View your fishing profile and stats." },
-      { name: "use", desc: "Use a potion or consumable item." },
-    ],
-  },
-  games: {
-    label: "Games",
-    emoji: config.emojis.cat_games,
-    commands: [
-      { name: "blackjack", desc: "Play blackjack with card emojis!" },
-      { name: "gamble", desc: "Coinflip, roulette, dice, and more." },
-      { name: "slots", desc: "Spin the slot machine." },
-      { name: "flip", desc: "Flip a coin for double or nothing." },
-      { name: "crime", desc: "Commit a crime for big rewards." },
-      { name: "balance", desc: "Check your coin balance." },
-      { name: "sack", desc: "View and manage your sack inventory." },
-    ],
-  },
-  pvp: {
-    label: "Player vs Player",
-    emoji: "⚔️",
-    commands: [
-      { name: "steal", desc: "Attempt to steal coins from another player." },
-      { name: "duel", desc: "Challenge a player to a fishing-themed duel." },
-      { name: "fish-off", desc: "Competitive fishing duel (3 rounds)." },
-      { name: "heist", desc: "Assemble a crew and rob a player." },
-      { name: "bounty", desc: "Place bounties or view the board." },
-      { name: "give", desc: "Gift coins or items to another player." },
-      { name: "trade", desc: "Direct item trading with another player." },
-      { name: "rep", desc: "Give daily reputation to a player." },
-      { name: "drop", desc: "Drop coins in channel for grabs." },
-      { name: "gift-box", desc: "Send a mystery gift box." },
-      { name: "lottery", desc: "Buy tickets for the daily lottery." },
-      { name: "market", desc: "Buy and sell items on the player market." },
-    ],
-  },
+  general: { label: "General", emoji: config.emojis.cat_general },
+  economy: { label: "Economy & PvP", emoji: config.emojis.cat_rewards },
+  fishing: { label: "Fishing", emoji: config.emojis.cat_fishing },
+  misc: { label: "Misc", emoji: config.emojis.cat_games },
 };
+
+const CATEGORY_ORDER: CategoryKey[] = ["general", "economy", "fishing", "misc"];
+
+function getCategories(client: CoreBot) {
+  const cats: Record<CategoryKey, { name: string; desc: string }[]> = {
+    general: [],
+    economy: [],
+    fishing: [],
+    misc: [],
+  };
+
+  for (const cmd of client.commands.values()) {
+    if (cmd.devOnly || cmd.adminOnly) continue;
+    const raw = (cmd.category ?? "misc").toLowerCase();
+    const key: CategoryKey = raw in cats ? (raw as CategoryKey) : "misc";
+    cats[key].push({ name: cmd.name, desc: cmd.description });
+  }
+
+  // Sort each category alphabetically
+  for (const key of CATEGORY_ORDER) {
+    cats[key].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return cats;
+}
 
 function buildTabRow(activeTab: CategoryKey): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    (Object.keys(CATEGORIES) as CategoryKey[]).map((key) =>
+    CATEGORY_ORDER.map((key) =>
       new ButtonBuilder()
         .setCustomId(`help:tab:${key}`)
-        .setLabel(CATEGORIES[key].label)
+        .setLabel(CATEGORY_META[key].label)
         .setStyle(
           key === activeTab ? ButtonStyle.Primary : ButtonStyle.Secondary,
         ),
@@ -102,17 +62,20 @@ function buildTabRow(activeTab: CategoryKey): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
-function buildPayload(activeTab: CategoryKey) {
-  const cat = CATEGORIES[activeTab];
+function buildPayload(activeTab: CategoryKey, client: CoreBot) {
+  const cats = getCategories(client);
+  const meta = CATEGORY_META[activeTab];
+  const commands = cats[activeTab];
+
   const builder = ui()
     .color(config.colors.default)
-    .title(`${cat.emoji} Command Center — ${cat.label}`)
+    .title(`${meta.emoji} Command Center — ${meta.label}`)
     .quote(
-      "Here are Baitin's most popular commands. This isn't everything — use `/help [command]` for full details!",
+      "Here are Baitin's commands. Use `/help [command]` for full details!",
     )
     .divider();
 
-  for (const cmd of cat.commands) {
+  for (const cmd of commands) {
     builder.section(
       `**/${cmd.name}**\n${cmd.desc}`,
       btn(`/${cmd.name}`, `help:cmd:${cmd.name}`, ButtonStyle.Secondary),
@@ -143,7 +106,7 @@ export default {
     const focusedValue = ctx.options.getFocused();
     const choices = client.commands
       .values()
-      .filter((cmd) => cmd.name.toLowerCase() !== "help")
+      .filter((cmd) => cmd.name.toLowerCase() !== "help" && !cmd.devOnly)
       .map((cmd) => cmd.name)
       .toArray();
 
@@ -219,7 +182,7 @@ export default {
 
     // Command Center
     const activeTab: CategoryKey = "general";
-    const payload = buildPayload(activeTab);
+    const payload = buildPayload(activeTab, client);
 
     const { resource } = await ctx.reply({
       ...payload,
@@ -238,7 +201,7 @@ export default {
 
       if (action === "tab") {
         const tab = value as CategoryKey;
-        await i.update(buildPayload(tab) as any);
+        await i.update(buildPayload(tab, client) as any);
       } else if (action === "cmd") {
         const command = client.commands.get(value);
         if (!command) return i.deferUpdate();
@@ -261,10 +224,10 @@ export default {
     collector.on("end", async () => {
       const disabledTabRow =
         new ActionRowBuilder<ButtonBuilder>().addComponents(
-          (Object.keys(CATEGORIES) as CategoryKey[]).map((key) =>
+          CATEGORY_ORDER.map((key) =>
             new ButtonBuilder()
               .setCustomId(`help:tab:${key}`)
-              .setLabel(CATEGORIES[key].label)
+              .setLabel(CATEGORY_META[key].label)
               .setStyle(ButtonStyle.Secondary)
               .setDisabled(true),
           ),

@@ -7,6 +7,10 @@ import {
   getOrCreateProfile,
 } from "@/modules/fishing/economy";
 import {
+  checkBlackjackWinLimit,
+  incrementBlackjackWins,
+} from "@/modules/fishing/economy_games";
+import {
   createGame,
   getGame,
   hitPlayer,
@@ -144,6 +148,7 @@ async function startGame(interaction: any, userId: string, amount: number) {
     deleteGame(gameId);
 
     if (result.payout > 0) await addCoins(userId, result.payout);
+    if (result.result === "blackjack" || result.result === "win") await incrementBlackjackWins(userId);
 
     return interaction.reply(
       ui()
@@ -217,6 +222,7 @@ async function startGame(interaction: any, userId: string, amount: number) {
         collector.stop("settled");
 
         if (result.payout > 0) await addCoins(userId, result.payout);
+        if (result.result === "blackjack" || result.result === "win") await incrementBlackjackWins(userId);
 
         return i.update(
           ui()
@@ -244,6 +250,7 @@ async function startGame(interaction: any, userId: string, amount: number) {
       collector.stop("settled");
 
       if (result.payout > 0) await addCoins(userId, result.payout);
+      if (result.result === "blackjack" || result.result === "win") await incrementBlackjackWins(userId);
 
       return i.update(
         ui()
@@ -280,6 +287,7 @@ async function startGame(interaction: any, userId: string, amount: number) {
       collector.stop("settled");
 
       if (result.payout > 0) await addCoins(userId, result.payout);
+      if (result.result === "blackjack" || result.result === "win") await incrementBlackjackWins(userId);
 
       return i.update(
         ui()
@@ -319,6 +327,19 @@ export default {
   usage: ["/blackjack"],
   defer: "none",
   run: async ({ ctx }) => {
+    // Check daily win limit
+    const { ok: canPlay } = await checkBlackjackWinLimit(ctx.user.id);
+    if (!canPlay) {
+      return ctx.reply({
+        ...ui()
+          .color(config.colors.error)
+          .title(`${config.emojis.cross} Daily Limit Reached`)
+          .body("It looks like you're counting cards \u{1F928}\nYou've hit your 3 win limit for today. Come back tomorrow!")
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
+    }
+
     const profile = await getOrCreateProfile(ctx.user.id);
 
     // Landing page with balance + stakes selection

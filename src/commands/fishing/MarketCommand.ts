@@ -342,6 +342,13 @@ export default {
       if (!item)
         return ctx.editReply({ content: `${config.emojis.cross} Unknown item.` });
 
+      const maxPrice = Math.floor(item.price * 1.75);
+      if (price > maxPrice) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} Max price for **${item.emoji} ${item.name}** is **${maxPrice.toLocaleString()}** ${config.emojis.coin}/ea (175% of base value).`,
+        });
+      }
+
       const durationMs = isAuction ? durationHours * 60 * 60 * 1000 : undefined;
       const result = await createListing(
         ctx.user.id,

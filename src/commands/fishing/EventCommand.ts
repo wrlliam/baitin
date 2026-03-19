@@ -13,6 +13,13 @@ const EFFECT_LABELS: Record<string, string> = {
   coin_multiplier: "Coin Multiplier",
 };
 
+const EFFECT_EMOJIS: Record<string, string> = {
+  xp_multiplier: "📖",
+  catch_rate: "🎣",
+  rarity_boost: "✨",
+  coin_multiplier: "💰",
+};
+
 export default {
   name: "event",
   description: "Check or join the currently active fishing event.",
@@ -41,44 +48,62 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🎪 Active Event")
-          .text("*No event is currently active. Events trigger randomly — check back soon!*")
+          .title(`${config.emojis.event} Active Event`)
+          .text("*No event is currently active.*")
+          .divider()
+          .text("Events trigger randomly every few hours. Check back soon!")
           .footer("Use /event info to check again anytime.")
           .build() as any,
       );
     }
 
     if (sub === "info") {
+      const durationMins = Math.round(event.duration / 60000);
+
       const effectLines = event.effects.map((e) => {
         const label = EFFECT_LABELS[e.type] ?? e.type;
-        const mult = e.value >= 1 ? `×${e.value}` : `×${e.value} (debuff)`;
-        return `• **${label}:** ${mult}`;
+        const emoji = EFFECT_EMOJIS[e.type] ?? "•";
+        const isDebuff = e.value < 1;
+        const display = isDebuff ? `×${e.value} ⬇` : `×${e.value}`;
+        return `${emoji} **${label}:** ${display}`;
       });
 
-      const durationMins = Math.round(event.duration / 60000);
-      const entryLine = event.entryFee ? `\n• **Entry Fee:** ${event.entryFee.toLocaleString()} ${config.emojis.coin}` : "";
+      const builder = ui()
+        .color(0x2b7fff)
+        .title(`${config.emojis.event} ${event.name}`)
+        .text(event.description)
+        .divider()
+        .text(effectLines.join("\n"));
 
-      return ctx.editReply(
-        ui()
-          .color(config.colors.default)
-          .title(`${config.emojis.event} ${event.name}`)
-          .text(event.description)
-          .divider()
-          .text(
-            `**Effects:**\n${effectLines.join("\n")}\n\n**Duration:** ${durationMins} minutes${entryLine}`,
-          )
-          .footer("Event effects apply automatically when you /cast during this event.")
-          .build() as any,
-      );
+      const detailLines: string[] = [];
+      detailLines.push(`⏱️ **Duration:** ${durationMins} minutes`);
+      if (event.entryFee) {
+        detailLines.push(`${config.emojis.coin} **Entry Fee:** ${event.entryFee.toLocaleString()}`);
+      } else {
+        detailLines.push("🆓 **Entry:** Free — effects apply automatically");
+      }
+
+      builder.divider();
+      builder.text(detailLines.join("\n"));
+      builder.footer("Event effects apply when you /cast • Use /event join if an entry fee is required");
+
+      return ctx.editReply(builder.build() as any);
     }
 
     if (sub === "join") {
       if (!event.entryFee) {
         return ctx.editReply(
           ui()
-            .color(config.colors.default)
-            .title("🎪 Free Event!")
-            .body(`**${event.name}** is free to join — just use \`/cast\` and the event effects apply automatically!`)
+            .color(config.colors.success)
+            .title(`🆓 ${event.name}`)
+            .text("This event is **free** — just use `/cast` and the effects apply automatically!")
+            .divider()
+            .text(
+              event.effects
+                .map((e) => `${EFFECT_EMOJIS[e.type] ?? "•"} **${EFFECT_LABELS[e.type] ?? e.type}:** ×${e.value}`)
+                .join("\n"),
+            )
+            .footer("Go fish!")
             .build() as any,
         );
       }
@@ -87,16 +112,25 @@ export default {
       const alreadyJoined = await redis.get(joinKey);
 
       if (alreadyJoined) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} You've already joined **${event.name}**!`,
-        });
+        return ctx.editReply(
+          ui()
+            .color(config.colors.warn)
+            .title(`${config.emojis.event} Already Joined`)
+            .text(`You've already joined **${event.name}**! Get out there and fish.`)
+            .footer("Use /cast to fish with event effects active")
+            .build() as any,
+        );
       }
 
       const paid = await subtractCoins(ctx.user.id, event.entryFee);
       if (!paid) {
-        return ctx.editReply({
-          content: `${config.emojis.cross} You need **${event.entryFee.toLocaleString()}** ${config.emojis.coin} to join this event.`,
-        });
+        return ctx.editReply(
+          ui()
+            .color(config.colors.error)
+            .title(`${config.emojis.cross} Not Enough Coins`)
+            .text(`You need **${event.entryFee.toLocaleString()}** ${config.emojis.coin} to join **${event.name}**.`)
+            .build() as any,
+        );
       }
 
       const ttlSeconds = Math.max(1, Math.ceil(event.duration / 1000));
@@ -108,10 +142,16 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.success)
-          .title(`🎪 Joined ${event.name}!`)
-          .body(
-            `Paid **${event.entryFee.toLocaleString()}** ${config.emojis.coin} entry fee.\nEvent ends <t:${expirySeconds}:R>.`,
+          .title(`${config.emojis.tick} Joined ${event.name}!`)
+          .text(`Paid **${event.entryFee.toLocaleString()}** ${config.emojis.coin} entry fee.`)
+          .divider()
+          .text(
+            event.effects
+              .map((e) => `${EFFECT_EMOJIS[e.type] ?? "•"} **${EFFECT_LABELS[e.type] ?? e.type}:** ×${e.value}`)
+              .join("\n"),
           )
+          .divider()
+          .text(`⏳ Event ends <t:${expirySeconds}:R>`)
           .footer("Use /cast to fish with event effects active!")
           .build() as any,
       );

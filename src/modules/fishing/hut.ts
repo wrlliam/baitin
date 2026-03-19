@@ -8,6 +8,7 @@ import { junk as junkData } from "@/data/junk";
 import { getOrCreateProfile, subtractCoins, addCoins } from "./economy";
 import { removeItem } from "./inventory";
 import config from "@/config";
+import { ui } from "@/ui";
 import type { Client } from "discord.js";
 import type { Fish, JunkItem } from "@/data/types";
 
@@ -232,15 +233,29 @@ export async function processHutCatch(
   const result = await collectHut(hutData.userId);
   if (!result || result.items.length === 0) return;
 
-  const messagePayload = {
-    content: `${config.emojis.hut} **Your hut caught some fish!**\n${result.items
-      .map((i) => `${i.emoji} **${i.name}** ×${i.quantity}`)
-      .join("\n")}`,
-  };
+  const totalValue = result.items.reduce((sum, i) => {
+    const item = allItems.get(i.id);
+    return sum + (item ? Math.floor(item.price * config.fishing.sellPriceMultiplier) * i.quantity : 0);
+  }, 0);
+
+  const itemLines = result.items
+    .map((i) => `${i.emoji} **${i.name}** ×${i.quantity}`)
+    .join("\n");
+
+  const messagePayload = ui()
+    .color(config.colors.default)
+    .title(`${config.emojis.hut} Hut Report`)
+    .text(`Your hut caught **${result.total}** items while you were away!`)
+    .divider()
+    .text(itemLines)
+    .divider()
+    .text(`**Est. value:** ${totalValue.toLocaleString()} ${config.emojis.coin}`)
+    .footer("Use /hut view to collect and sell • /hut upgrade to improve catch rate")
+    .build();
 
   try {
     const user = await client.users.fetch(hutData.userId);
-    await user.send(messagePayload);
+    await user.send(messagePayload as any);
   } catch {
     // DiscordAPIError 50007: Cannot send messages to this user — store as notification
     await db.insert(hutNotifications).values({

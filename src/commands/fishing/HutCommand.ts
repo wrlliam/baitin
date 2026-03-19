@@ -693,11 +693,23 @@ export default {
     if (sub === "notifications") {
       const notifications = await getHutNotifications(ctx.user.id);
       if (notifications.length === 0) {
-        return ctx.editReply({ content: "No stored hut notifications." });
+        return ctx.editReply(
+          ui()
+            .color(config.colors.default)
+            .title(`${config.emojis.hut} Hut Notifications`)
+            .text("No stored notifications. Your hut DMs are coming through!")
+            .footer("Notifications are stored here when your DMs are closed.")
+            .build() as any,
+        );
       }
 
       const unread = notifications.filter((n) => !n.read);
-      const lines = notifications.slice(0, 10).map((n) => {
+      const builder = ui()
+        .color(config.colors.default)
+        .title(`${config.emojis.hut} Hut Notifications`)
+        .text(`**${unread.length}** unread of **${notifications.length}** total`);
+
+      for (const n of notifications.slice(0, 8)) {
         const items = JSON.parse(n.message) as {
           name: string;
           emoji: string;
@@ -706,19 +718,22 @@ export default {
         const timestamp = n.createdAt
           ? `<t:${Math.floor(n.createdAt.getTime() / 1000)}:R>`
           : "Unknown time";
-        return `${timestamp}: ${items.map((i) => `${i.emoji} ${i.name} ×${i.quantity}`).join(", ")}`;
-      });
+        const unreadDot = !n.read ? "🔴 " : "";
+        const itemText = items.map((i) => `${i.emoji} ${i.name} ×${i.quantity}`).join(", ");
+        builder.divider();
+        builder.text(`${unreadDot}**${timestamp}**\n${itemText}`);
+      }
+
+      if (notifications.length > 8) {
+        builder.divider();
+        builder.text(`*...and ${notifications.length - 8} more*`);
+      }
 
       await markNotificationsRead(ctx.user.id);
 
-      return ctx.editReply(
-        ui()
-          .color(config.colors.default)
-          .title(`${config.emojis.hut} Hut Notifications`)
-          .body(lines.join("\n"))
-          .footer(`${unread.length} unread • Marked all as read`)
-          .build() as any,
-      );
+      builder.footer("All marked as read");
+
+      return ctx.editReply(builder.build() as any);
     }
   },
 } as Command;
