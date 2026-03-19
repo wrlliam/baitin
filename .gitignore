@@ -50,4 +50,7 @@ CLAUDE.md
 /.swarm
 
 **/node_modules
-**
+**/.env
+**/.claude
+**/.agents
+**/skills-lock.json

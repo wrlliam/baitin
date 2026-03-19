@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Light mode (default) */
+  --color-bg:            #f8fafc;
+  --color-surface:       #ffffff;
+  --color-surface-2:     #f1f5f9;
+  --color-surface-3:     #e2e8f0;
+  --color-border:        rgba(0 0 0 / 0.08);
+  --color-border-bright: rgba(0 0 0 / 0.15);
+  --color-accent:        #4f8ef7;
+  --color-accent-dim:    rgba(79 142 247 / 0.08);
+  --color-accent-2:      #818cf8;
+  --color-accent-2-dim:  rgba(129 140 248 / 0.08);
+  --color-text:          #0f172a;
+  --color-muted:         #64748b;
+  --color-muted-2:       #94a3b8;
+  --color-overlay:       rgba(0 0 0 / 0.04);
+}
+
+.dark {
+  --color-bg:            #07090f;
+  --color-surface:       #0b0f1a;
+  --color-surface-2:     #121b2e;
+  --color-surface-3:     #1a2540;
+  --color-border:        rgba(255 255 255 / 0.06);
+  --color-border-bright: rgba(255 255 255 / 0.12);
+  --color-accent:        #4f8ef7;
+  --color-accent-dim:    rgba(79 142 247 / 0.12);
+  --color-accent-2:      #818cf8;
+  --color-accent-2-dim:  rgba(129 140 248 / 0.12);
+  --color-text:          #f1f5f9;
+  --color-muted:         #94a3b8;
+  --color-muted-2:       #64748b;
+  --color-overlay:       rgba(255 255 255 / 0.06);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+@utility gradient-text {
+  background: linear-gradient(135deg, #4f8ef7 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(var(--color-overlay) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-overlay) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
