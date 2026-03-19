@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   unique,
+  index,
   pgTable,
 } from "drizzle-orm/pg-core";
 
@@ -57,7 +58,10 @@ export const fishingInventory = pgTable(
     itemType: text("item_type").notNull(),
     quantity: integer("quantity").default(1).notNull(),
   },
-  (t) => [unique("fishing_inv_user_item").on(t.userId, t.itemId)],
+  (t) => [
+    unique("fishing_inv_user_item").on(t.userId, t.itemId),
+    index("fi_user_idx").on(t.userId),
+  ],
 );
 
 export type FishingInventorySelect = typeof fishingInventory.$inferSelect;
@@ -104,7 +108,9 @@ export const petInstance = pgTable("pet_instance", {
   name: text("name"),
   petLevel: integer("pet_level").default(1).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+}, (t) => [
+  index("pi_user_idx").on(t.userId),
+]);
 
 export type PetInstanceSelect = typeof petInstance.$inferSelect;
 export type PetInstanceInsert = typeof petInstance.$inferInsert;
@@ -122,7 +128,9 @@ export const marketListing = pgTable("market_listing", {
   highestBid: integer("highest_bid").default(0),
   status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+}, (t) => [
+  index("ml_status_created_idx").on(t.status, t.createdAt),
+]);
 
 export type MarketListingSelect = typeof marketListing.$inferSelect;
 export type MarketListingInsert = typeof marketListing.$inferInsert;
@@ -146,7 +154,9 @@ export const eggIncubator = pgTable("egg_incubator", {
   hatchesAt: timestamp("hatches_at", { withTimezone: true }).notNull(),
   hatched: boolean("hatched").default(false).notNull(),
   failed: boolean("failed").default(false).notNull(),
-});
+}, (t) => [
+  index("ei_user_hatched_idx").on(t.userId, t.hatched),
+]);
 
 export const guildSettings = pgTable("guild_settings", {
   id: text("id").primaryKey(),
@@ -164,7 +174,9 @@ export const fishingLog = pgTable("fishing_log", {
   itemId: text("item_id").notNull(),
   itemType: text("item_type").notNull(),
   caughtAt: timestamp("caught_at", { withTimezone: true }).defaultNow(),
-});
+}, (t) => [
+  index("fl_user_type_idx").on(t.userId, t.itemType),
+]);
 
 export type FishingLogSelect = typeof fishingLog.$inferSelect;
 export type FishingLogInsert = typeof fishingLog.$inferInsert;
@@ -177,7 +189,10 @@ export const achievement = pgTable(
     achievementId: text("achievement_id").notNull(),
     unlockedAt: timestamp("unlocked_at", { withTimezone: true }).defaultNow(),
   },
-  (t) => [unique("ach_user_ach").on(t.userId, t.achievementId)],
+  (t) => [
+    unique("ach_user_ach").on(t.userId, t.achievementId),
+    index("ach_user_idx").on(t.userId),
+  ],
 );
 
 export type AchievementSelect = typeof achievement.$inferSelect;

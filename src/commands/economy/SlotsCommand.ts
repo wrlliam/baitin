@@ -2,7 +2,7 @@ import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, subtractCoins } from "@/modules/fishing/economy";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COST = 50;
 const SYMBOLS = ["🐟", "🦐", "🦞", "🐡", "💎"];
@@ -20,21 +20,25 @@ export default {
   description: `Spin the slot machine for ${COST} coins a pull.`,
   type: ApplicationCommandType.ChatInput,
   usage: ["/slots"],
+  defer: "none",
   options: [],
   run: async ({ ctx }) => {
 
     const paid = await subtractCoins(ctx.user.id, COST);
     if (!paid) {
-      return ctx.editReply(
-        ui()
+      return ctx.reply({
+        ...ui()
           .color(config.colors.default)
           .title(`${config.emojis.cross} Not Enough Coins`)
           .body(
             `You need at least **${COST}** ${config.emojis.coin} to spin the slots.`,
           )
-          .build() as any,
-      );
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const r1 = spin();
     const r2 = spin();

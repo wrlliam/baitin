@@ -46,36 +46,43 @@ export async function buyListing(
   buyerId: string,
   listingId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const listings = await db
-    .select()
-    .from(marketListing)
-    .where(and(eq(marketListing.id, listingId), eq(marketListing.status, "active")));
+  // Atomically claim the listing by setting status to 'sold' only if still 'active'
+  const [claimed] = await db
+    .update(marketListing)
+    .set({ status: "sold" })
+    .where(and(eq(marketListing.id, listingId), eq(marketListing.status, "active")))
+    .returning();
 
-  const listing = listings[0];
-  if (!listing) return { success: false, error: "Listing not found or no longer active." };
-  if (listing.isAuction) return { success: false, error: "This is an auction — use bid instead." };
-  if (listing.sellerId === buyerId) return { success: false, error: "You can't buy your own listing." };
+  if (!claimed) return { success: false, error: "Listing not found or no longer active." };
+  if (claimed.isAuction) {
+    // Revert — this shouldn't be bought directly
+    await db.update(marketListing).set({ status: "active" }).where(eq(marketListing.id, listingId));
+    return { success: false, error: "This is an auction — use bid instead." };
+  }
+  if (claimed.sellerId === buyerId) {
+    await db.update(marketListing).set({ status: "active" }).where(eq(marketListing.id, listingId));
+    return { success: false, error: "You can't buy your own listing." };
+  }
 
-  const totalCost = listing.pricePerUnit * listing.quantity;
+  const totalCost = claimed.pricePerUnit * claimed.quantity;
   const paid = await subtractCoins(buyerId, totalCost);
-  if (!paid) return { success: false, error: "Not enough coins." };
+  if (!paid) {
+    // Revert listing back to active
+    await db.update(marketListing).set({ status: "active" }).where(eq(marketListing.id, listingId));
+    return { success: false, error: "Not enough coins." };
+  }
 
   // Transfer item to buyer
-  const added = await addItem(buyerId, listing.itemId, listing.itemType, listing.quantity);
+  const added = await addItem(buyerId, claimed.itemId, claimed.itemType, claimed.quantity);
   if (!added) {
-    // Refund
+    // Refund coins and revert listing
     await addCoins(buyerId, totalCost);
+    await db.update(marketListing).set({ status: "active" }).where(eq(marketListing.id, listingId));
     return { success: false, error: "Your sack is full!" };
   }
 
   // Pay seller
-  await addCoins(listing.sellerId, totalCost);
-
-  // Mark listing as sold
-  await db
-    .update(marketListing)
-    .set({ status: "sold" })
-    .where(eq(marketListing.id, listingId));
+  await addCoins(claimed.sellerId, totalCost);
 
   return { success: true };
 }
@@ -85,6 +92,7 @@ export async function placeBid(
   listingId: string,
   amount: number
 ): Promise<{ success: boolean; error?: string }> {
+  // First, read the listing for validation checks that don't need atomicity
   const listings = await db
     .select()
     .from(marketListing)
@@ -94,20 +102,34 @@ export async function placeBid(
   if (!listing) return { success: false, error: "Listing not found." };
   if (!listing.isAuction) return { success: false, error: "This is not an auction." };
   if (listing.sellerId === bidderId) return { success: false, error: "Can't bid on your own listing." };
-  if (amount <= (listing.highestBid ?? 0)) return { success: false, error: "Bid must be higher than current highest bid." };
 
+  // Deduct coins first
   const paid = await subtractCoins(bidderId, amount);
   if (!paid) return { success: false, error: "Not enough coins." };
 
-  // Refund previous bidder
+  // Atomically claim the bid only if our amount is still higher than current highest
+  const [updated] = await db
+    .update(marketListing)
+    .set({ highestBidderId: bidderId, highestBid: amount })
+    .where(
+      and(
+        eq(marketListing.id, listingId),
+        eq(marketListing.status, "active"),
+        sql`COALESCE(${marketListing.highestBid}, 0) < ${amount}`
+      )
+    )
+    .returning();
+
+  if (!updated) {
+    // Someone outbid us between the check and the update — refund
+    await addCoins(bidderId, amount);
+    return { success: false, error: "Bid must be higher than current highest bid." };
+  }
+
+  // Refund previous bidder (using values captured atomically from the returning row)
   if (listing.highestBidderId && listing.highestBid) {
     await addCoins(listing.highestBidderId, listing.highestBid);
   }
-
-  await db
-    .update(marketListing)
-    .set({ highestBidderId: bidderId, highestBid: amount })
-    .where(eq(marketListing.id, listingId));
 
   return { success: true };
 }

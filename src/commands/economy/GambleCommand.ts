@@ -31,10 +31,11 @@ const LOSE_FLAVORS = [
 ];
 
 export default {
-  name: "blackjack",
+  name: "gamble",
   description: "Bet your coins for a 50/50 shot at doubling up.",
   type: ApplicationCommandType.ChatInput,
-  usage: ["/blackjack <price>"],
+  usage: ["/gamble <price>"],
+  defer: "none",
   options: [
     {
       name: "price",
@@ -50,16 +51,19 @@ export default {
 
     const paid = await subtractCoins(ctx.user.id, amount);
     if (!paid) {
-      return ctx.editReply(
-        ui()
+      return ctx.reply({
+        ...ui()
           .color(config.colors.default)
           .title(`${config.emojis.cross} Not Enough Coins`)
           .body(
             `You need **${amount.toLocaleString()}** ${config.emojis.coin} to place that bet.`,
           )
-          .build() as any,
-      );
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const won = Math.random() < 0.5;
     if (won) await addCoins(ctx.user.id, amount * 2);

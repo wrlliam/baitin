@@ -1,5 +1,10 @@
+import { env } from "@/env";
+
+const INVITE_PERMISSIONS = 85056; // ViewChannel + SendMessages + EmbedLinks + AddReactions + ReadMessageHistory
+
 export default {
   support: "https://discord.gg/aTkjGak2ZM",
+  invite: `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_CLIENT_ID}&permissions=${INVITE_PERMISSIONS}&scope=bot+applications.commands`,
   ids: {
     dev: "1283484433390895215",
   },

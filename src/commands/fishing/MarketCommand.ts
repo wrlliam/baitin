@@ -258,7 +258,7 @@ export default {
           const listingId = parts[2];
           const result = await buyListing(i.user.id, listingId);
           if (!result.success) {
-            return i.reply({ content: `${config.emojis.cross} ${result.error}`, ephemeral: true });
+            return i.reply({ content: `${config.emojis.cross} ${result.error}`, flags: MessageFlags.Ephemeral });
           }
           const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
           return i.update(e.build({ rows: [nr, fr] }) as any);
@@ -285,16 +285,16 @@ export default {
             const modalI = await i.awaitModalSubmit({ time: 60 * 1000 });
             const amount = parseInt(modalI.fields.getTextInputValue("amount").trim(), 10);
             if (isNaN(amount) || amount < 1) {
-              await modalI.reply({ content: `${config.emojis.cross} Invalid bid amount.`, ephemeral: true });
+              await modalI.reply({ content: `${config.emojis.cross} Invalid bid amount.`, flags: MessageFlags.Ephemeral });
               return;
             }
             const result = await placeBid(i.user.id, listingId, amount);
             if (!result.success) {
-              await modalI.reply({ content: `${config.emojis.cross} ${result.error}`, ephemeral: true });
+              await modalI.reply({ content: `${config.emojis.cross} ${result.error}`, flags: MessageFlags.Ephemeral });
             } else {
               await modalI.reply({
                 content: `${config.emojis.tick} Bid of **${amount.toLocaleString()}** ${config.emojis.coin} placed!`,
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
               });
               const { embed: e, navRow: nr, filterRow: fr } = await buildBrowsePage(curPage, curCategory, ctx.user.id);
               await message.edit(e.build({ rows: [nr, fr] }) as any);
@@ -316,7 +316,7 @@ export default {
     }
 
     // Non-browse subcommands — ephemeral
-    await ctx.deferReply({ ephemeral: true });
+    await ctx.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (sub === "list") {
       const itemId = args.getString("item", true);

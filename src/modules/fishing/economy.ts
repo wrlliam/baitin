@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { fishingProfile } from "@/db/schema";
 import type { FishingProfileSelect } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { createId } from "@/utils/misc";
 
 export async function getOrCreateProfile(userId: string) {
@@ -13,7 +13,10 @@ export async function getOrCreateProfile(userId: string) {
   if (existing[0]) return existing[0];
 
   const id = createId();
-  await db.insert(fishingProfile).values({ id, userId });
+  await db
+    .insert(fishingProfile)
+    .values({ id, userId })
+    .onConflictDoNothing({ target: fishingProfile.userId });
 
   const created = await db
     .select()
@@ -46,15 +49,13 @@ export async function addCoins(userId: string, amount: number) {
 }
 
 export async function subtractCoins(userId: string, amount: number): Promise<boolean> {
-  const profile = await getOrCreateProfile(userId);
-  if (profile.coins < amount) return false;
-
-  await db
+  const result = await db
     .update(fishingProfile)
     .set({ coins: sql`${fishingProfile.coins} - ${amount}` })
-    .where(eq(fishingProfile.userId, userId));
+    .where(and(eq(fishingProfile.userId, userId), gte(fishingProfile.coins, amount)))
+    .returning({ coins: fishingProfile.coins });
 
-  return true;
+  return result.length > 0;
 }
 
 export async function getBalance(userId: string): Promise<number> {
@@ -63,16 +64,17 @@ export async function getBalance(userId: string): Promise<number> {
 }
 
 /**
- * Add XP and increment totalCatches. When called from the fishing hot path,
- * pass currentXp/currentLevel to avoid a redundant profile SELECT.
- * When called from other contexts (achievements, dev commands) those params
- * can be omitted and the profile will be fetched.
+ * Add XP to a user's profile. Only increments totalCatches when
+ * incrementCatch is true (i.e. the fishing hot path).
+ * When called from other contexts (achievements, dev commands, rewards)
+ * totalCatches is left unchanged.
  */
 export async function addXp(
   userId: string,
   amount: number,
   currentXp?: number,
   currentLevel?: number,
+  incrementCatch = false,
 ): Promise<{ levelUp: boolean; newLevel: number }> {
   let xp: number;
   let level: number;
@@ -91,13 +93,18 @@ export async function addXp(
   const newLevel = Math.floor(newXp / xpPerLevel) + 1;
   const levelUp = newLevel > level;
 
+  const updates: Record<string, unknown> = {
+    xp: newXp,
+    level: newLevel,
+  };
+
+  if (incrementCatch) {
+    updates.totalCatches = sql`${fishingProfile.totalCatches} + 1`;
+  }
+
   await db
     .update(fishingProfile)
-    .set({
-      xp: newXp,
-      level: newLevel,
-      totalCatches: sql`${fishingProfile.totalCatches} + 1`,
-    })
+    .set(updates)
     .where(eq(fishingProfile.userId, userId));
 
   return { levelUp, newLevel };

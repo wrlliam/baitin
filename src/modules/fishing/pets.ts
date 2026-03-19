@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { fishingProfile, petInstance, eggIncubator } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { createId } from "@/utils/misc";
 import { eggItems, petItems } from "@/data";
 import { getOrCreateProfile } from "./economy";
@@ -200,18 +200,18 @@ export async function getPetBuffs(userId: string, existingProfile?: import("@/db
   const petEffectBoost = await getBuffTotal(userId, "pet_effect_boost");
   const buffs: Record<string, number> = {};
 
-  for (const instanceId of profile.equippedPets) {
-    const instances = await db
-      .select()
-      .from(petInstance)
-      .where(eq(petInstance.id, instanceId));
+  if (profile.equippedPets.length === 0) return buffs;
 
-    if (!instances[0]) continue;
+  const instances = await db
+    .select()
+    .from(petInstance)
+    .where(inArray(petInstance.id, profile.equippedPets));
 
-    const pet = petItems.get(instances[0].petId);
+  for (const instance of instances) {
+    const pet = petItems.get(instance.petId);
     if (!pet) continue;
 
-    const level = instances[0].petLevel ?? 1;
+    const level = instance.petLevel ?? 1;
     const levelScalar = 1 + (level - 1) * 0.1;
     const petBoostScalar = 1 + petEffectBoost;
 
@@ -272,9 +272,14 @@ export async function renamePet(
     return { success: false, error: "You don't own this pet." };
   }
 
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 32) {
+    return { success: false, error: "Pet name must be 1-32 characters." };
+  }
+
   await db
     .update(petInstance)
-    .set({ name: newName })
+    .set({ name: trimmed })
     .where(eq(petInstance.id, petInstanceId));
 
   return { success: true };

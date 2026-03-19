@@ -98,28 +98,23 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
     await db.update(hut).set({ rodDurability: currentRodDurability }).where(eq(hut.id, hutData.id));
   }
 
-  // Store in hut inventory
-  for (const [itemId, data] of caughtItems) {
-    const existingRows = await db
-      .select()
-      .from(hutInventory)
-      .where(sql`${hutInventory.hutId} = ${hutData.id} AND ${hutInventory.itemId} = ${itemId}`);
+  // Store in hut inventory — batch upsert with ON CONFLICT
+  const upsertValues = Array.from(caughtItems, ([itemId, data]) => ({
+    id: createId(),
+    hutId: hutData.id,
+    itemId,
+    itemType: fishData.find((f) => f.id === itemId) ? "fish" as const : "junk" as const,
+    quantity: data.quantity,
+  }));
 
-    if (existingRows[0]) {
-      await db
-        .update(hutInventory)
-        .set({ quantity: sql`${hutInventory.quantity} + ${data.quantity}` })
-        .where(eq(hutInventory.id, existingRows[0].id));
-    } else {
-      const category = fishData.find((f) => f.id === itemId) ? "fish" : "junk";
-      await db.insert(hutInventory).values({
-        id: createId(),
-        hutId: hutData.id,
-        itemId,
-        itemType: category,
-        quantity: data.quantity,
+  if (upsertValues.length > 0) {
+    await db
+      .insert(hutInventory)
+      .values(upsertValues)
+      .onConflictDoUpdate({
+        target: [hutInventory.hutId, hutInventory.itemId],
+        set: { quantity: sql`${hutInventory.quantity} + excluded.quantity` },
       });
-    }
   }
 
   // Update last collected
@@ -257,13 +252,23 @@ export async function processHutCatch(
 }
 
 export async function runHutCron(client: Client): Promise<void> {
-  const huts = await db.select().from(hut);
-  for (const hutData of huts) {
-    try {
-      await processHutCatch(hutData, client);
-    } catch {
-      // Skip individual hut failures so remaining huts still process
+  const PAGE_SIZE = 100;
+  let offset = 0;
+
+  while (true) {
+    const page = await db.select().from(hut).limit(PAGE_SIZE).offset(offset);
+    if (page.length === 0) break;
+
+    for (const hutData of page) {
+      try {
+        await processHutCatch(hutData, client);
+      } catch {
+        // Skip individual hut failures so remaining huts still process
+      }
     }
+
+    if (page.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
 }
 

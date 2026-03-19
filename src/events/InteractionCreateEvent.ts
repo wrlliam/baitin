@@ -9,7 +9,7 @@ import type { Event, ExtendedInteraction } from "../core/typings";
 import { app } from "..";
 import config from "../config";
 import { defaultEmbeds } from "../core/Embed";
-import { err } from "../utils/logger";
+import { err, warn } from "../utils/logger";
 
 export default {
   name: "interactionCreate",
@@ -78,8 +78,8 @@ export default {
             MessageFlags.IsComponentsV2 |
             (command.defer ? MessageFlags.Ephemeral : 0);
           await interaction.deferReply({ flags: deferFlags });
-        } catch {
-          // Interaction already expired — nothing we can do
+        } catch (deferErr) {
+          warn(`Defer failed for /${cmdName} — interaction may have expired: ${deferErr}`);
           return;
         }
       }
@@ -92,7 +92,13 @@ export default {
           ctx: interaction as ExtendedInteraction,
         });
       } catch (e) {
-        err(`Command /${cmdName} failed: ${e}`, 0);
+        const errorMsg = e instanceof Error ? e : new Error(String(e));
+        err(
+          new Error(
+            `Command /${cmdName} failed | user: ${interaction.user.tag} (${interaction.user.id}) | guild: ${interaction.guild?.id}\n${errorMsg.message}`
+          ),
+          0
+        );
         try {
           const content = `${config.emojis.cross} Something went wrong running \`/${cmdName}\`. Please try again.`;
           if (interaction.deferred || interaction.replied) {

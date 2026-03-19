@@ -1,28 +1,41 @@
 import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
-import { rods } from "@/data";
 import { tip } from "@/data/tip";
-import { getOrCreateProfile } from "@/modules/fishing/economy";
 import { canFish, doFish } from "@/modules/fishing/fishing";
+import { sellItem } from "@/modules/fishing/inventory";
 import { capitalise } from "@/utils";
-import { ApplicationCommandType, MessageFlags } from "discord.js";
+import { db } from "@/db";
+import { fishingLog } from "@/db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import {
+  ActionRowBuilder,
+  ApplicationCommandType,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+} from "discord.js";
 
 export default {
   name: "cast",
   description: "Ready to test your luck?",
   type: ApplicationCommandType.ChatInput,
   usage: ["/cast"],
+  defer: "none",
   options: [],
   run: async ({ args, client, ctx }) => {
     const canFishResult = await canFish(ctx.user.id);
     if (!canFishResult.ok) {
       const remainingMs = canFishResult.remaining;
       const remainingSecs = Math.ceil(remainingMs / 1000);
-      return ctx.editReply({
+      return ctx.reply({
         content: `You can't cast that quickly! Please wait **${remainingSecs}s** before trying again.`,
+        flags: MessageFlags.Ephemeral,
       });
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const fishPromise = doFish(ctx.user.id);
 
@@ -35,13 +48,10 @@ export default {
     await ctx.editReply({ content: stage2Message });
 
     const fishedResult = await fishPromise;
-    const profile = await getOrCreateProfile(ctx.user.id);
 
     await new Promise((r) => setTimeout(r, config.fishing.castAnimationDelay));
 
-    const rodName =
-      rods.find((r) => r.id === profile.equippedRodId)?.name ??
-      "Splintered Twig";
+    const rodName = fishedResult.rodName;
 
     let extraBody = "";
     if (fishedResult.rodBroke) {

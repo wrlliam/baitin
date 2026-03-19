@@ -72,6 +72,36 @@ export async function getItemStock(itemId: string): Promise<number> {
   return parseInt(val);
 }
 
+async function batchGetStocks(itemIds: string[]): Promise<Map<string, number>> {
+  const stockMap = new Map<string, number>();
+  const redisItems: { itemId: string; key: string; defaultStock: number }[] = [];
+
+  for (const itemId of itemIds) {
+    if (itemId === "hut_permit") {
+      // hut_permit uses a DB query, not Redis
+      stockMap.set(itemId, await getItemStock(itemId));
+      continue;
+    }
+    const defaultStock = getDefaultDailyStock(itemId);
+    if (defaultStock === -1) {
+      stockMap.set(itemId, -1);
+    } else {
+      redisItems.push({ itemId, key: getDailyStockKey(itemId), defaultStock });
+    }
+  }
+
+  if (redisItems.length > 0) {
+    const keys = redisItems.map((r) => r.key);
+    const values = await redis.send("MGET", keys) as (string | null)[];
+    for (let i = 0; i < redisItems.length; i++) {
+      const val = values[i];
+      stockMap.set(redisItems[i].itemId, val === null ? redisItems[i].defaultStock : parseInt(val));
+    }
+  }
+
+  return stockMap;
+}
+
 export async function getShopCategory(category: ShopCategory): Promise<ShopEntry[]> {
   const entries: ShopEntry[] = [];
 
@@ -80,24 +110,27 @@ export async function getShopCategory(category: ShopCategory): Promise<ShopEntry
       entries.push({ item: b, buyPrice: b.buyPrice, stock: -1 });
     }
   } else if (category === "rod") {
-    for (const r of rods.filter((r) => r.buyPrice > 0)) {
-      const stock = await getItemStock(r.id);
-      entries.push({ item: r, buyPrice: r.buyPrice, stock });
+    const filteredRods = rods.filter((r) => r.buyPrice > 0);
+    const stocks = await batchGetStocks(filteredRods.map((r) => r.id));
+    for (const r of filteredRods) {
+      entries.push({ item: r, buyPrice: r.buyPrice, stock: stocks.get(r.id) ?? -1 });
     }
   } else if (category === "potion") {
-    for (const p of potions.filter((p) => p.id !== "rod_repair_kit" && p.id !== "hut_permit")) {
-      const stock = await getItemStock(p.id);
-      entries.push({ item: p, buyPrice: p.price, stock });
+    const filteredPotions = potions.filter((p) => p.id !== "rod_repair_kit" && p.id !== "hut_permit");
+    const stocks = await batchGetStocks(filteredPotions.map((p) => p.id));
+    for (const p of filteredPotions) {
+      entries.push({ item: p, buyPrice: p.price, stock: stocks.get(p.id) ?? -1 });
     }
   } else if (category === "egg") {
+    const stocks = await batchGetStocks(eggs.map((e) => e.id));
     for (const e of eggs) {
-      const stock = await getItemStock(e.id);
-      entries.push({ item: e, buyPrice: e.price, stock });
+      entries.push({ item: e, buyPrice: e.price, stock: stocks.get(e.id) ?? -1 });
     }
   } else if (category === "special") {
     const specialItems = potions.filter((p) => p.id === "rod_repair_kit" || p.id === "hut_permit");
+    const stocks = await batchGetStocks(specialItems.map((s) => s.id));
     for (const s of specialItems) {
-      const stock = await getItemStock(s.id);
+      const stock = stocks.get(s.id) ?? -1;
       const buyPrice = SPECIAL_BUY_PRICES[s.id] ?? s.price;
 
       // Hut permit: only show if stock > 0 AND random 30% chance (rare appearance)
@@ -138,9 +171,33 @@ export async function buyShopItem(
 
   if (!item) return { success: false, error: "Item not found in shop." };
 
-  // Check stock
-  const stock = await getItemStock(itemId);
-  if (stock === 0) return { success: false, error: "This item is sold out!" };
+  // Check stock (unlimited items skip stock check)
+  const defaultStock = getDefaultDailyStock(itemId);
+  const isLimited = defaultStock !== -1 && itemId !== "hut_permit";
+
+  if (isLimited) {
+    // Atomic decrement to prevent TOCTOU race
+    const key = getDailyStockKey(itemId);
+    const ttl = getTTLToMidnight();
+
+    // Initialize stock in Redis if not set yet
+    const exists = await redis.get(key);
+    if (exists === null) {
+      await redis.send("SETEX", [key, ttl.toString(), defaultStock.toString()]);
+    }
+
+    const newStock = Number(await redis.send("DECR", [key]));
+    if (newStock < 0) {
+      await redis.send("INCR", [key]); // Rollback
+      return { success: false, error: "This item is sold out!" };
+    }
+  } else if (itemId !== "hut_permit") {
+    // Unlimited stock — no check needed
+  } else {
+    // hut_permit uses DB-based stock
+    const stock = await getItemStock(itemId);
+    if (stock === 0) return { success: false, error: "This item is sold out!" };
+  }
 
   // Apply cost reduction buff
   const costReduction = await getBuffTotal(userId, "cost_reduction");
@@ -168,22 +225,25 @@ export async function buyShopItem(
 
   // Deduct coins
   const paid = await subtractCoins(userId, price);
-  if (!paid) return { success: false, error: "Not enough coins." };
+  if (!paid) {
+    // Rollback stock decrement if coins insufficient
+    if (isLimited) {
+      const key = getDailyStockKey(itemId);
+      await redis.send("INCR", [key]);
+    }
+    return { success: false, error: "Not enough coins." };
+  }
 
   // Add to inventory
   const added = await addItem(userId, itemId, item.category, 1);
   if (!added) {
     await addCoins(userId, price);
+    // Rollback stock decrement if inventory full
+    if (isLimited) {
+      const key = getDailyStockKey(itemId);
+      await redis.send("INCR", [key]);
+    }
     return { success: false, error: "Your sack is full! Upgrade or sell items." };
-  }
-
-  // Decrement stock if limited
-  if (stock !== -1) {
-    const key = getDailyStockKey(itemId);
-    const ttl = getTTLToMidnight();
-    const newStock = Math.max(0, stock - 1);
-    await redis.set(key, newStock.toString());
-    await redis.send("EXPIRE", [key, ttl.toString()]);
   }
 
   return { success: true, item, price };

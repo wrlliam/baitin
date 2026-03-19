@@ -3,7 +3,7 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, subtractCoins } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COOLDOWN_SECS = 7200; // 2 hours
 const FINE = 150;
@@ -24,21 +24,25 @@ export default {
   description: "Commit a crime and risk it for the big bucks.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/crime"],
+  defer: "none",
   options: [],
   run: async ({ ctx }) => {
 
     const cooldown = await checkCooldown(ctx.user.id, "crime");
     if (!cooldown.ok) {
-      return ctx.editReply(
-        ui()
+      return ctx.reply({
+        ...ui()
           .color(config.colors.default)
           .title("🚔 Lay Low for Now")
           .body(
             `The game warden is still watching you. Try again <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
-          .build() as any,
-      );
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const crime = CRIMES[Math.floor(Math.random() * CRIMES.length)];
     await setCooldown(ctx.user.id, "crime", COOLDOWN_SECS);

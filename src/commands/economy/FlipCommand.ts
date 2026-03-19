@@ -15,6 +15,7 @@ export default {
   description: "Flip a coin and bet on the outcome.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/flip <amount> <side>"],
+  defer: "none",
   options: [
     {
       name: "amount",
@@ -42,16 +43,19 @@ export default {
 
     const paid = await subtractCoins(ctx.user.id, amount);
     if (!paid) {
-      return ctx.editReply(
-        ui()
+      return ctx.reply({
+        ...ui()
           .color(config.colors.default)
           .title(`${config.emojis.cross} Not Enough Coins`)
           .body(
             `You don't have **${amount.toLocaleString()}** ${config.emojis.coin} to bet.`,
           )
-          .build() as any,
-      );
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const result: "heads" | "tails" = Math.random() < 0.5 ? "heads" : "tails";
     const won = result === side;

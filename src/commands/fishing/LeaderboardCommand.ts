@@ -15,15 +15,16 @@ import {
 
 const MEDALS = ["\u{1F947}", "\u{1F948}", "\u{1F949}", "4\uFE0F\u20E3", "5\uFE0F\u20E3"];
 
-type BoardType = "coins" | "level" | "catches";
+type BoardType = "coins" | "level" | "catches" | "streaks";
 
 const BOARD_CONFIG: Record<BoardType, { emoji: string; label: string; title: string }> = {
   coins: { emoji: "\u{1F4B0}", label: "Coins", title: "\u{1F4B0} Top Coins" },
   level: { emoji: "\u{1F3A3}", label: "Level", title: "\u{1F3A3} Top Level" },
   catches: { emoji: "\u{1F41F}", label: "Catches", title: "\u{1F41F} Top Catches" },
+  streaks: { emoji: "\u{1F525}", label: "Streaks", title: "\u{1F525} Top Streaks" },
 };
 
-const BOARD_ORDER: BoardType[] = ["coins", "level", "catches"];
+const BOARD_ORDER: BoardType[] = ["coins", "level", "catches", "streaks"];
 
 async function fetchTop10(type: BoardType) {
   const sortCol =
@@ -31,7 +32,9 @@ async function fetchTop10(type: BoardType) {
       ? fishingProfile.coins
       : type === "level"
         ? fishingProfile.level
-        : fishingProfile.totalCatches;
+        : type === "streaks"
+          ? fishingProfile.currentStreak
+          : fishingProfile.totalCatches;
 
   return db
     .select()
@@ -44,6 +47,7 @@ async function fetchTop10(type: BoardType) {
 function formatValue(type: BoardType, row: any): string {
   if (type === "coins") return `${row.coins.toLocaleString()} ${config.emojis.coin}`;
   if (type === "level") return `Level ${row.level}`;
+  if (type === "streaks") return `${row.currentStreak} day streak`;
   return `${row.totalCatches.toLocaleString()} catches`;
 }
 
@@ -116,24 +120,25 @@ export default {
     };
 
     // Pre-fetch all boards and caller ranks in parallel
-    const [coinsRows, levelRows, catchRows, allProfiles] = await Promise.all([
+    const [coinsRows, levelRows, catchRows, streakRows, allProfiles] = await Promise.all([
       fetchTop10("coins"),
       fetchTop10("level"),
       fetchTop10("catches"),
+      fetchTop10("streaks"),
       db
-        .select({ userId: fishingProfile.userId, coins: fishingProfile.coins, level: fishingProfile.level, totalCatches: fishingProfile.totalCatches })
+        .select({ userId: fishingProfile.userId, coins: fishingProfile.coins, level: fishingProfile.level, totalCatches: fishingProfile.totalCatches, currentStreak: fishingProfile.currentStreak })
         .from(fishingProfile)
         .where(eq(fishingProfile.leaderboardHidden, false)),
     ]);
 
-    const boardData: Record<BoardType, any[]> = { coins: coinsRows, level: levelRows, catches: catchRows };
+    const boardData: Record<BoardType, any[]> = { coins: coinsRows, level: levelRows, catches: catchRows, streaks: streakRows };
 
     // Compute caller rank for each board
-    const callerRanks: Record<BoardType, number | null> = { coins: null, level: null, catches: null };
+    const callerRanks: Record<BoardType, number | null> = { coins: null, level: null, catches: null, streaks: null };
     for (const type of BOARD_ORDER) {
       const inTop = boardData[type].some((r) => r.userId === ctx.user.id);
       if (!inTop) {
-        const key = type === "coins" ? "coins" : type === "level" ? "level" : "totalCatches";
+        const key = type === "coins" ? "coins" : type === "level" ? "level" : type === "streaks" ? "currentStreak" : "totalCatches";
         const sorted = allProfiles.slice().sort((a: any, b: any) => b[key] - a[key]);
         const idx = sorted.findIndex((r) => r.userId === ctx.user.id);
         if (idx !== -1) callerRanks[type] = idx;
@@ -141,7 +146,7 @@ export default {
     }
 
     // Pre-fetch all usernames
-    const allUserIds = new Set([...coinsRows, ...levelRows, ...catchRows].map((r) => r.userId));
+    const allUserIds = new Set([...coinsRows, ...levelRows, ...catchRows, ...streakRows].map((r) => r.userId));
     await Promise.all([...allUserIds].map(fetchUser));
 
     let activeBoard: BoardType = "coins";

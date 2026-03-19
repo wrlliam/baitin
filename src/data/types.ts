@@ -123,6 +123,7 @@ export interface CatchResult {
   levelUp: boolean;
   newLevel?: number;
   rodBroke?: boolean;
+  rodName: string;
   streakDay?: number;
   streakBonus?: boolean;
   newAchievements?: import("@/data/achievements").AchievementDef[];

@@ -57,11 +57,21 @@ export async function doFish(userId: string): Promise<CatchResult> {
   let coinMult = 1;
 
   if (event) {
-    for (const effect of event.effects) {
-      if (effect.type === "rarity_boost") rarityMult *= effect.value;
-      if (effect.type === "xp_multiplier") xpMult *= effect.value;
-      if (effect.type === "coin_multiplier") coinMult *= effect.value;
-      if (effect.type === "catch_rate") junkChance /= effect.value;
+    // Check entry fee enforcement: only apply event bonuses if no fee or user has joined
+    let eventApplies = true;
+    if (event.entryFee && event.entryFee > 0) {
+      const joinedKey = `event:joined:${event.id}:${userId}`;
+      const hasJoined = await redis.get(joinedKey);
+      if (!hasJoined) eventApplies = false;
+    }
+
+    if (eventApplies) {
+      for (const effect of event.effects) {
+        if (effect.type === "rarity_boost") rarityMult *= effect.value;
+        if (effect.type === "xp_multiplier") xpMult *= effect.value;
+        if (effect.type === "coin_multiplier") coinMult *= effect.value;
+        if (effect.type === "catch_rate") junkChance /= effect.value;
+      }
     }
   }
 
@@ -242,6 +252,7 @@ export async function doFish(userId: string): Promise<CatchResult> {
     levelUp,
     newLevel,
     rodBroke,
+    rodName: rod?.name ?? "Splintered Twig",
     streakDay: currentStreak,
     streakBonus,
     newAchievements,

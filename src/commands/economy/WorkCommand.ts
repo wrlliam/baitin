@@ -3,7 +3,7 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, getOrCreateProfile } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
-import { ApplicationCommandType } from "discord.js";
+import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COOLDOWN_SECS = 3600; // 1 hour
 
@@ -27,21 +27,25 @@ export default {
   description: "Do some work around the docks and earn coins.",
   type: ApplicationCommandType.ChatInput,
   usage: ["/work"],
+  defer: "none",
   options: [],
   run: async ({ ctx }) => {
 
     const cooldown = await checkCooldown(ctx.user.id, "work");
     if (!cooldown.ok) {
-      return ctx.editReply(
-        ui()
+      return ctx.reply({
+        ...ui()
           .color(config.colors.default)
           .title("🪣 Still Tired!")
           .body(
             `You're still recovering from your last shift. Come back <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
-          .build() as any,
-      );
+          .build(),
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+      } as any);
     }
+
+    await ctx.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const profile = await getOrCreateProfile(ctx.user.id);
     const job = JOBS[Math.floor(Math.random() * JOBS.length)];

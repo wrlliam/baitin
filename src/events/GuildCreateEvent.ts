@@ -17,6 +17,8 @@ import { app } from "..";
 export default {
   name: "guildCreate",
   run: async (guild: Guild) => {
+    // Only send welcome on a real new guild join, not on reconnect/availability
+    if (!app.isReady()) return;
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setLabel("Get Started")

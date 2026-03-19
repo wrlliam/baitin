@@ -62,8 +62,7 @@ export async function attemptSteal(thiefId: string, targetId: string): Promise<S
   if (!success) {
     const fine = 200;
     await subtractCoins(thiefId, fine);
-    await redis.set(`steal:cd:${thiefId}`, cdExpiresAt.toString());
-    await redis.send("EXPIRE", [`steal:cd:${thiefId}`, STEAL_CD_TTL.toString()]);
+    await redis.send("SETEX", [`steal:cd:${thiefId}`, STEAL_CD_TTL.toString(), cdExpiresAt.toString()]);
     return { success: false, error: "caught", fine };
   }
 
@@ -98,16 +97,13 @@ export async function attemptSteal(thiefId: string, targetId: string): Promise<S
     result = await _stealCoins(thiefId, targetId, targetProfile.coins);
   }
 
-  // Set target immune + thief cooldown
-  await redis.set(`steal:immune:${targetId}`, immuneExpiresAt.toString());
-  await redis.send("EXPIRE", [`steal:immune:${targetId}`, IMMUNE_TTL.toString()]);
-  await redis.set(`steal:cd:${thiefId}`, cdExpiresAt.toString());
-  await redis.send("EXPIRE", [`steal:cd:${thiefId}`, STEAL_CD_TTL.toString()]);
+  // Set target immune + thief cooldown (atomic SETEX)
+  await redis.send("SETEX", [`steal:immune:${targetId}`, IMMUNE_TTL.toString(), immuneExpiresAt.toString()]);
+  await redis.send("SETEX", [`steal:cd:${thiefId}`, STEAL_CD_TTL.toString(), cdExpiresAt.toString()]);
 
-  // Track steal count for achievements
+  // Track steal count for achievements (atomic INCR)
   const stealCountKey = `steal:total:${thiefId}`;
-  const currentCount = parseInt((await redis.get(stealCountKey)) ?? "0") + 1;
-  await redis.set(stealCountKey, currentCount.toString());
+  const currentCount = Number(await redis.send("INCR", [stealCountKey]));
   const newAchievements = await checkStealAchievements(thiefId, currentCount);
 
   if (result.success) {
