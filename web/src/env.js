@@ -8,7 +8,7 @@ export const env = createEnv({
    */
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]),
-    BOT_API_URL: z.string().default("http://localhost:3000"),
+    BOT_API_URL: z.string().default("https://fishing.bnhm.dev"),
   },
 
   /**
@@ -17,7 +17,12 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_DISCORD_INVITE_URL: z.string().url(),
+    NEXT_PUBLIC_DISCORD_INVITE_URL: z
+      .string()
+      .url()
+      .default(
+        "https://discord.com/oauth2/authorize?client_id=1483033234689232977&permissions=1513962695871&integration_type=0&scope=bot+applications.commands",
+      ),
   },
 
   /**
