@@ -160,14 +160,14 @@ export default {
       if (i.isButton()) {
         const info = INFO[i.customId] ?? `Button \`${i.customId}\` clicked!`;
         await i.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: infoMsg("💡 Command Info", info).components,
         } as any);
       } else if (i.componentType === ComponentType.StringSelect) {
         const value = (i as any).values?.[0] as string;
         const info = FISH_INFO[value] ?? `Selected: \`${value}\``;
         await i.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: infoMsg("🐟 Fish Info", info).components,
         } as any);
       }

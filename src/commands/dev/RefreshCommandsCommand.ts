@@ -1,3 +1,4 @@
+import config from "@/config";
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { app } from "@/index";
@@ -16,7 +17,7 @@ export default {
     await ctx.editReply(
       ui()
         .color(0xffa500)
-        .title("🔄 Refreshing Commands...")
+        .title(`${config.emojis.refresh} Refreshing Commands...`)
         .body("Re-registering all slash commands, please wait.")
         .build() as any,
     );
@@ -50,7 +51,7 @@ export default {
         await ctx.editReply(
           ui()
             .color(0x00ff00)
-            .title("✅ Commands Refreshed (Global)")
+            .title(`${config.emojis.tick} Commands Refreshed (Global)`)
             .body(`Registered **${data.length}** commands globally.`)
             .build() as any,
         );
@@ -66,7 +67,7 @@ export default {
         await ctx.editReply(
           ui()
             .color(0x00ff00)
-            .title("✅ Commands Refreshed")
+            .title(`${config.emojis.tick} Commands Refreshed`)
             .body(
               `Registered **${commandList.length}** commands in **${guilds.length}** guild${guilds.length > 1 ? "s" : ""}.`,
             )
@@ -77,7 +78,7 @@ export default {
       await ctx.editReply(
         ui()
           .color(0xff0000)
-          .title("❌ Refresh Failed")
+          .title(`${config.emojis.cross} Refresh Failed`)
           .body(`\`\`\`\n${e}\n\`\`\``)
           .build() as any,
       );

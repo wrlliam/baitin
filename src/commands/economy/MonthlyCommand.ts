@@ -21,7 +21,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🗓️ Already Claimed")
+          .title(`${config.emojis.monthly} Already Claimed`)
           .body(
             `You've already claimed your monthly reward. Come back <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
@@ -38,7 +38,7 @@ export default {
     return ctx.editReply(
       ui()
         .color(config.colors.default)
-        .title("🗓️ Monthly Reward")
+        .title(`${config.emojis.monthly} Monthly Reward`)
         .body(
           `You claimed your monthly reward and received **${coins.toLocaleString()}** ${config.emojis.coin}!`,
         )

@@ -30,6 +30,26 @@ export async function getActiveBuffs(userId: string): Promise<ActiveBuff[]> {
   return buffs.filter((b) => b.expiresAt > now);
 }
 
+/** Extend all active buffs by the given number of minutes. */
+export async function extendBuff(userId: string, minutes: number): Promise<void> {
+  const buffs = await getActiveBuffs(userId);
+  if (buffs.length === 0) return;
+
+  const extensionMs = minutes * 60 * 1000;
+  const now = Date.now();
+
+  const extended = buffs.map((b) => ({
+    ...b,
+    expiresAt: b.expiresAt + extensionMs,
+  }));
+
+  const maxTtlMs = Math.max(...extended.map((b) => b.expiresAt - now));
+  const ttlSeconds = Math.max(1, Math.ceil(maxTtlMs / 1000));
+
+  await redis.set(BUFF_KEY(userId), JSON.stringify(extended));
+  await redis.send("EXPIRE", [BUFF_KEY(userId), ttlSeconds.toString()]);
+}
+
 export async function getBuffTotal(userId: string, type: BuffEffect["type"]): Promise<number> {
   const buffs = await getActiveBuffs(userId);
   return buffs.filter((b) => b.type === type).reduce((sum, b) => sum + b.amount, 0);

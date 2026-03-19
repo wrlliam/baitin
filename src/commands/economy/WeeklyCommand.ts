@@ -37,7 +37,7 @@ export default {
     return ctx.editReply(
       ui()
         .color(config.colors.default)
-        .title("📆 Weekly Reward")
+        .title(`${config.emojis.weekly} Weekly Reward`)
         .body(
           `You claimed your weekly reward and received **${coins.toLocaleString()}** ${config.emojis.coin}!`,
         )

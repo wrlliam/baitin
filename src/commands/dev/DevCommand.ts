@@ -56,9 +56,9 @@ type DevCategory = (typeof DEV_CATEGORIES)[number];
 const CATEGORY_LABELS: Record<DevCategory, string> = {
   fish: "🐟 Fish",
   junk: "🗑️ Junk",
-  bait: "🪱 Bait",
-  rod: "🎣 Rods",
-  egg: "🥚 Eggs",
+  bait: `${config.emojis.bait} Bait`,
+  rod: `${config.emojis.rod} Rods`,
+  egg: `${config.emojis.egg} Eggs`,
   misc: "📦 Misc",
 };
 

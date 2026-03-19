@@ -51,11 +51,11 @@ export default {
             `You don't have **${amount.toLocaleString()}** ${config.emojis.coin} to bet.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       } as any);
     }
 
-    await ctx.deferReply(src/commands/economy/FlipCommand.ts);
+    await ctx.deferReply({});
 
     const result: "heads" | "tails" = Math.random() < 0.5 ? "heads" : "tails";
     const won = result === side;
@@ -65,7 +65,7 @@ export default {
     return ctx.editReply(
       ui()
         .color(won ? config.colors.success : config.colors.error)
-        .title("🪙 Coin Flip")
+        .title(`${config.emojis.flip} Coin Flip`)
         .body(
           won
             ? `The coin landed on **${result}**! You called it right.\n\nYou won **${amount.toLocaleString()}** ${config.emojis.coin}!`

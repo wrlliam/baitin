@@ -54,7 +54,7 @@ export default {
     return ctx.reply(
       ui()
         .color(config.colors.default)
-        .title("🎱 Magic 8-Ball")
+        .title(`${config.emojis.eight_ball} Magic 8-Ball`)
         .body(`> ${question}`)
         .divider()
         .body(response)

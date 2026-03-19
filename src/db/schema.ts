@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   unique,
+  uniqueIndex,
   index,
   pgTable,
 } from "drizzle-orm/pg-core";
@@ -43,6 +44,8 @@ export const fishingProfile = pgTable("fishing_profile", {
   lastFishDate: date("last_fish_date"),
   // Settings
   hutNotifications: boolean("hut_notifications").default(true).notNull(),
+  gems: integer("gems").default(0).notNull(),
+  reputation: integer("reputation").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -197,3 +200,65 @@ export const achievement = pgTable(
 
 export type AchievementSelect = typeof achievement.$inferSelect;
 export type AchievementInsert = typeof achievement.$inferInsert;
+
+export const playerQuest = pgTable("player_quest", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  questId: text("quest_id").notNull(),
+  type: text("type").notNull(), // "daily" | "weekly"
+  progress: integer("progress").default(0).notNull(),
+  goal: integer("goal").notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  claimed: boolean("claimed").default(false).notNull(),
+  assignedAt: timestamp("assigned_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (t) => [
+  index("pq_user_type_idx").on(t.userId, t.type),
+]);
+
+export type PlayerQuestSelect = typeof playerQuest.$inferSelect;
+export type PlayerQuestInsert = typeof playerQuest.$inferInsert;
+
+// ── Social & PvP ──
+
+export const tradeLog = pgTable("trade_log", {
+  id: text("id").primaryKey(),
+  initiatorId: text("initiator_id").notNull(),
+  targetId: text("target_id").notNull(),
+  initiatorItems: json("initiator_items").notNull(), // [{itemId, itemType, qty}]
+  targetItems: json("target_items").notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const lotteryTicket = pgTable("lottery_ticket", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  ticketCount: integer("ticket_count").default(1).notNull(),
+  drawId: text("draw_id").notNull(),
+  purchasedAt: timestamp("purchased_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("lt_draw_user_idx").on(t.drawId, t.userId),
+]);
+
+export const lotteryDraw = pgTable("lottery_draw", {
+  id: text("id").primaryKey(),
+  totalPot: integer("total_pot").default(0).notNull(),
+  totalTickets: integer("total_tickets").default(0).notNull(),
+  winnerId: text("winner_id"),
+  status: text("status").default("active").notNull(), // "active" | "completed"
+  drawAt: timestamp("draw_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const bounty = pgTable("bounty", {
+  id: text("id").primaryKey(),
+  placerId: text("placer_id").notNull(),
+  targetId: text("target_id").notNull(),
+  amount: integer("amount").notNull(),
+  status: text("status").default("active").notNull(), // "active" | "claimed" | "expired"
+  claimedBy: text("claimed_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (t) => [
+  index("bounty_target_status_idx").on(t.targetId, t.status),
+]);

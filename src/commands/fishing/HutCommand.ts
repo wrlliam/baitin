@@ -44,29 +44,29 @@ function buildHutActionRows(userId: string) {
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`hut:collect:${userId}`)
-      .setLabel("🎣 Collect")
+      .setLabel(`${config.emojis.collect} Collect`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`hut:inventory:${userId}`)
-      .setLabel("📦 Inventory")
+      .setLabel(`${config.emojis.inventory} Inventory`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:configure:${userId}`)
-      .setLabel("⚙️ Configure")
+      .setLabel(`${config.emojis.configure} Configure`)
       .setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:speed:${userId}`)
-      .setLabel("⬆️ Speed")
+      .setLabel(`${config.emojis.up_arrow} Speed`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:luck:${userId}`)
-      .setLabel("⬆️ Luck")
+      .setLabel(`${config.emojis.up_arrow} Luck`)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:upgrade:inv:${userId}`)
-      .setLabel("⬆️ Inv")
+      .setLabel(`${config.emojis.up_arrow} Inv`)
       .setStyle(ButtonStyle.Secondary),
   );
   return [row1, row2] as const;
@@ -92,7 +92,7 @@ async function buildHutMainPayload(userId: string) {
 
   const embedPayload = ui()
     .color(config.colors.default)
-    .title("🏚️ Your Hut")
+    .title(`${config.emojis.hut} Your Hut`)
     .body(
       `**Speed Level:** ${hutData.speedLevel} (${speedUpgrade?.speedMinutes ?? 60} min/catch)\n**Luck Level:** ${hutData.luckLevel}\n**Inventory:** ${hutInv.length} items / ${invUpgrade?.capacity ?? 12}`,
     )
@@ -111,7 +111,7 @@ async function buildHutMainPayload(userId: string) {
 
 async function buildHutInventoryPayload(userId: string) {
   const hutInv = await getHutInventory(userId);
-  const invBuilder = ui().color(config.colors.default).title("📦 Hut Inventory");
+  const invBuilder = ui().color(config.colors.default).title(`${config.emojis.inventory} Hut Inventory`);
 
   if (hutInv.length === 0) {
     invBuilder.text("Your hut inventory is empty. Wait for it to catch some fish!");
@@ -135,7 +135,7 @@ async function buildHutInventoryPayload(userId: string) {
     actionBtns.push(
       new ButtonBuilder()
         .setCustomId(`hut:sellall:${userId}`)
-        .setLabel("💰 Sell All")
+        .setLabel(`${config.emojis.sell} Sell All`)
         .setStyle(ButtonStyle.Danger),
     );
   }
@@ -327,7 +327,7 @@ export default {
           return ctx.editReply(
             ui()
               .color(config.colors.default)
-              .title("🏡 Fishing Hut")
+              .title(`${config.emojis.hut} Fishing Hut`)
               .body(
                 "You need a **🏡 Fishing Hut Permit** to own a hut.\nBuy one from `/shop` → Special.\n\n⚠️ Only **10** hut permits exist in the entire economy!",
               )
@@ -345,7 +345,7 @@ export default {
         return ctx.editReply(
           ui()
             .color(config.colors.default)
-            .title("🏚️ Your Hut")
+            .title(`${config.emojis.hut} Your Hut`)
             .body(
               "Welcome to your new fishing hut! It will passively catch fish over time.\nUse `/hut upgrade` to improve it.",
             )
@@ -385,7 +385,7 @@ export default {
 
           const collectEmbed = ui()
             .color(config.colors.default)
-            .title("🏚️ Hut Collected!")
+            .title(`${config.emojis.hut} Hut Collected!`)
             .text(collectBody)
             .build();
           const [r1, r2] = buildHutActionRows(ctx.user.id);
@@ -473,7 +473,7 @@ export default {
 
           const configEmbed = ui()
             .color(config.colors.default)
-            .title("⚙️ Configure Hut")
+            .title(`${config.emojis.configure} Configure Hut`)
             .text("Select a rod or pet to assign to your hut.")
             .build();
 
@@ -604,7 +604,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🏚️ Hut Collected!")
+          .title(`${config.emojis.hut} Hut Collected!`)
           .body(`Collected **${result.total}** catches:\n${lines.join("\n")}`)
           .build() as any,
       );
@@ -707,7 +707,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🏚️ Hut Notifications")
+          .title(`${config.emojis.hut} Hut Notifications`)
           .body(lines.join("\n"))
           .footer(`${unread.length} unread • Marked all as read`)
           .build() as any,

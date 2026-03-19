@@ -37,7 +37,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🪣 Not So Fast!")
+          .title(`${config.emojis.work} Not So Fast!`)
           .body(
             `You can't beg again just yet. Come back <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
@@ -57,7 +57,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🪣 Someone Took Pity")
+          .title(`${config.emojis.work} Someone Took Pity`)
           .body(`${flavor}\n\nYou received **${coins}** ${config.emojis.coin}.`)
           .footer("Cooldown: 30 minutes • Baitin • /help")
           .build() as any,
@@ -68,7 +68,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🪣 No Luck Today")
+          .title(`${config.emojis.work} No Luck Today`)
           .body(`${flavor}\n\nYou received **0** ${config.emojis.coin}.`)
           .footer("Cooldown: 30 minutes • Baitin • /help")
           .build() as any,

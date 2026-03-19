@@ -1,3 +1,4 @@
+import config from "@/config";
 import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { fishingInventory } from "@/db/schema";
@@ -9,8 +10,8 @@ import { checkStealAchievements } from "./achievements";
 import type { AchievementDef } from "@/data/achievements";
 
 export type StealResult =
-  | { success: true; type: "item"; itemId: string; itemName: string; itemEmoji: string; newAchievements?: AchievementDef[] }
-  | { success: true; type: "coins"; amount: number; newAchievements?: AchievementDef[] }
+  | { success: true; type: "item"; itemId: string; itemName: string; itemEmoji: string; newAchievements?: AchievementDef[]; bountyCollected?: number }
+  | { success: true; type: "coins"; amount: number; newAchievements?: AchievementDef[]; bountyCollected?: number }
   | { success: false; error: "cooldown"; expiresAt: number }
   | { success: false; error: "target_immune"; expiresAt: number }
   | { success: false; error: "level_diff" }
@@ -90,7 +91,7 @@ export async function attemptSteal(thiefId: string, targetId: string): Promise<S
         type: "item",
         itemId: pick.itemId,
         itemName: itemData?.name ?? pick.itemId,
-        itemEmoji: itemData?.emoji ?? "📦",
+        itemEmoji: itemData?.emoji ?? config.emojis.inventory,
       };
     }
   } else {
@@ -107,7 +108,10 @@ export async function attemptSteal(thiefId: string, targetId: string): Promise<S
   const newAchievements = await checkStealAchievements(thiefId, currentCount);
 
   if (result.success) {
-    return { ...result, newAchievements };
+    // Claim any active bounties on the target
+    const { claimBounties } = await import("./bounty");
+    const bountyResult = await claimBounties(targetId, thiefId);
+    return { ...result, newAchievements, bountyCollected: bountyResult.totalClaimed || undefined };
   }
 
   return result;

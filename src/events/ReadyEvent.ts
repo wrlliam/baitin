@@ -6,6 +6,7 @@ import { startEventScheduler, getActiveEvent } from "../modules/fishing/events";
 import { checkScheduledEvents } from "../modules/fishing/events";
 import { runHutCron } from "../modules/fishing/hut";
 import { settleExpiredAuctions } from "../modules/fishing/market";
+import { recordStartupGuilds } from "./GuildCreateEvent";
 import config from "@/config";
 
 const STATUSES = [
@@ -29,7 +30,7 @@ const STATUSES = [
 async function updateStatus() {
   const event = await getActiveEvent();
   if (event) {
-    const text = `🎪 ${event.name}`;
+    const text = `${config.emojis.event} ${event.name}`;
     app.user?.setPresence({
       status: PresenceUpdateStatus.DoNotDisturb,
       activities: [{ name: text, state: text, type: ActivityType.Custom }],
@@ -46,6 +47,10 @@ async function updateStatus() {
 export default {
   name: "clientReady",
   run: () => {
+    // Record all guilds the bot is already in so guildCreate doesn't
+    // send welcome messages for them on reconnect/availability
+    recordStartupGuilds(app.guilds.cache.keys());
+
     updateStatus();
     setInterval(async () => { try { await updateStatus(); } catch {} }, 60 * 1000);
 

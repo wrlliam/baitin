@@ -5,6 +5,7 @@ import { potionItems, rodItems } from "@/data";
 import { getInventory, removeItem } from "@/modules/fishing/inventory";
 import { addBuff } from "@/modules/fishing/buffs";
 import { getOrCreateProfile } from "@/modules/fishing/economy";
+import { incrementQuestProgress } from "@/modules/fishing/quests";
 import { db } from "@/db";
 import { fishingProfile } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -94,7 +95,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🔧 Rod Repaired!")
+          .title(`${config.emojis.gear} Rod Repaired!`)
           .body(
             `Your **${rod.emoji} ${rod.name}** has been fully restored to **${rod.durability}** durability.`,
           )
@@ -110,6 +111,7 @@ export default {
     }
 
     await addBuff(ctx.user.id, potion.effects);
+    void incrementQuestProgress(ctx.user.id, "use_potion");
 
     const effectLines = potion.effects.map((e) => {
       const sign = e.amount >= 0 ? "+" : "";

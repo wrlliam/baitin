@@ -119,8 +119,9 @@ function buildInventoryContainer(
         `${item.emoji} **${item.name}**\n-# ×${row.quantity} · ${item.rarity}`,
         new ButtonBuilder()
           .setCustomId(`sack_sell_${row.itemId}_${ctx.user.id}`)
-          .setLabel(`${sellPrice} ${config.emojis.coin}`)
-          .setStyle(ButtonStyle.Danger),
+          .setEmoji(config.emojis.coin)
+          .setLabel(`${sellPrice}`)
+          .setStyle(ButtonStyle.Success),
       );
     });
   });
@@ -259,7 +260,6 @@ export default {
           );
 
           await interaction.update({
-            
             components: [...detailContainer.components, sellRow],
           } as any);
           return;
@@ -377,7 +377,6 @@ export default {
                       .setStyle(ButtonStyle.Secondary),
                   );
                 await message.edit({
-                  
                   components: [...detailPayload.components, sellRow],
                 } as any);
               }

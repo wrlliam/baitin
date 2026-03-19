@@ -3,13 +3,14 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { allItems } from "@/data";
 import { getInventory, sellItem, sellAll } from "@/modules/fishing/inventory";
+import { incrementQuestProgress } from "@/modules/fishing/quests";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
   MessageFlags,
 } from "discord.js";
 
-const SELL_ALL_REACTIONS = ["💰", "🤑", "🎉", "🪙", "💸"];
+const SELL_ALL_REACTIONS = [config.emojis.coin, config.emojis.party, config.emojis.tick, config.emojis.crown, config.emojis.star];
 
 function pickReaction() {
   return SELL_ALL_REACTIONS[
@@ -106,9 +107,12 @@ export default {
         .reduce((s, i) => s + i.quantity, 0);
 
       const breakdownLines: string[] = [];
-      if (fishCount > 0) breakdownLines.push(`🐟 **${fishCount}** fish`);
-      if (junkCount > 0) breakdownLines.push(`🗑️ **${junkCount}** junk`);
-      if (baitCount > 0) breakdownLines.push(`🪱 **${baitCount}** bait`);
+      if (fishCount > 0) breakdownLines.push(`${config.emojis.fish} **${fishCount}** fish`);
+      if (junkCount > 0) breakdownLines.push(`${config.emojis.junk} **${junkCount}** junk`);
+      if (baitCount > 0) breakdownLines.push(`${config.emojis.bait} **${baitCount}** bait`);
+
+      const totalSold = fishCount + junkCount + baitCount;
+      if (totalSold > 0) void incrementQuestProgress(ctx.user.id, "sell_items", undefined, totalSold);
 
       const reaction = pickReaction();
 
@@ -146,6 +150,8 @@ export default {
           content: `${config.emojis.cross} ${result.error}`,
         });
       }
+
+      void incrementQuestProgress(ctx.user.id, "sell_items", undefined, qty);
 
       const qtyLabel = qty > 1 ? `${qty}× ` : "";
 

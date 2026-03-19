@@ -1,3 +1,4 @@
+import config from "@/config";
 import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { fishingProfile } from "@/db/schema";
@@ -12,11 +13,11 @@ export const SHOP_CATEGORIES = ["bait", "rod", "potion", "egg", "special"] as co
 export type ShopCategory = (typeof SHOP_CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<ShopCategory, string> = {
-  bait: "🪱 Bait",
-  rod: "🎣 Rods",
+  bait: `${config.emojis.bait} Bait`,
+  rod: `${config.emojis.rod} Rods`,
   potion: "⚗️ Potions",
-  egg: "🥚 Eggs",
-  special: "🌟 Special",
+  egg: `${config.emojis.egg} Eggs`,
+  special: `${config.emojis.star} Special`,
 };
 
 export interface ShopEntry {

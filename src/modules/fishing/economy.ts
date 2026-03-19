@@ -45,6 +45,10 @@ export async function addCoins(userId: string, amount: number) {
   if (amount > 0 && updated) {
     const { checkEconomyAchievements } = await import("./achievements");
     await checkEconomyAchievements(userId, { coins: updated.coins });
+
+    // Quest progress (fire-and-forget)
+    const { incrementQuestProgress } = await import("./quests");
+    void incrementQuestProgress(userId, "earn_coins", undefined, amount);
   }
 }
 

@@ -43,7 +43,7 @@ export async function broadcastEventAnnouncement(
 
   const announcement = ui()
     .color(0x2b7fff)
-    .title(`🎪 **${event.name}** is LIVE!`)
+    .title(`${config.emojis.event} **${event.name}** is LIVE!`)
     .text(event.description)
     .divider()
     .text(

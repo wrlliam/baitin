@@ -17,11 +17,11 @@ import {
 } from "discord.js";
 
 const CATEGORY_LABELS: Record<string, string> = {
-  catches: "🎣 Catches",
-  economy: "💰 Economy",
-  gear: "⚙️ Gear",
-  social: "🤝 Social",
-  fun: "🎉 Fun",
+  catches: `${config.emojis.rod} Catches`,
+  economy: `${config.emojis.coin} Economy`,
+  gear: `${config.emojis.gear} Gear`,
+  social: `${config.emojis.handshake} Social`,
+  fun: `${config.emojis.party} Fun`,
 };
 
 const CATEGORIES = ["catches", "economy", "gear", "social", "fun"] as const;
@@ -42,9 +42,9 @@ async function buildPage(target: User, category: AchCat) {
     const unlockedAt = unlockedMap.get(a.id);
     if (unlockedAt) {
       const ts = `<t:${Math.floor(unlockedAt.getTime() / 1000)}:d>`;
-      return `${a.emoji} **${a.name}** — ${a.description}\n-# ✅ Unlocked ${ts} • +${a.coinReward}${config.emojis.coin} +${a.xpReward}XP`;
+      return `${a.emoji} **${a.name}** — ${a.description}\n-# ${config.emojis.tick} Unlocked ${ts} • +${a.coinReward}${config.emojis.coin} +${a.xpReward}XP`;
     } else {
-      return `🔒 **${a.name}** — ${a.description}`;
+      return `${config.emojis.lock} **${a.name}** — ${a.description}`;
     }
   });
 
@@ -53,7 +53,7 @@ async function buildPage(target: User, category: AchCat) {
 
   const embed = ui()
     .color(config.colors.default)
-    .title(`🏅 Achievements — ${CATEGORY_LABELS[category]}`)
+    .title(`${config.emojis.achievement} Achievements — ${CATEGORY_LABELS[category]}`)
     .text(
       `**${target.username}** — ${totalUnlocked}/${totalDefs} unlocked\n` +
         `${CATEGORY_LABELS[category]}: ${unlockedCount}/${inCategory.length}`,

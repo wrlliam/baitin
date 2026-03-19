@@ -90,7 +90,8 @@ async function buildOverview(target: User) {
       `🎣 **Total Catches** — ${profile.totalCatches.toLocaleString()}\n` +
       `🎒 **Sack** — ${used}/${capacity} items (Tier ${profile.sackLevel}${sackTier ? ` — ${sackTier.capacity} cap` : ""})\n` +
       `📅 **Fishing Since** — ${joinedTs}\n` +
-      `📆 **Daily Streak** — ${streakText}`,
+      `📆 **Daily Streak** — ${streakText}\n` +
+      `💖 **Reputation** — ${(profile as any).reputation ?? 0} rep`,
     )
     .footer("Baitin • Use tabs above for more details");
 }

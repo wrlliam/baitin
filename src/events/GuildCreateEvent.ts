@@ -14,11 +14,21 @@ import {
 import type { Event } from "../core/typings";
 import { app } from "..";
 
+// Guilds that existed at startup — guildCreate fires for these on reconnect
+const startupGuilds = new Set<string>();
+let startupRecorded = false;
+
+export function recordStartupGuilds(guilds: Iterable<string>) {
+  for (const id of guilds) startupGuilds.add(id);
+  startupRecorded = true;
+}
+
 export default {
   name: "guildCreate",
   run: async (guild: Guild) => {
     // Only send welcome on a real new guild join, not on reconnect/availability
     if (!app.isReady()) return;
+    if (startupGuilds.has(guild.id)) return;
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setLabel("Get Started")
@@ -27,6 +37,7 @@ export default {
         .setCustomId("welcome_get_started"),
       new ButtonBuilder()
         .setLabel("Support Server")
+        .setEmoji(config.emojis.discord)
         .setStyle(ButtonStyle.Link)
         .setURL(config.support)
         .setEmoji("🛟"),

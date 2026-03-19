@@ -50,7 +50,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🔍 Already Searched")
+          .title(`${config.emojis.search} Already Searched`)
           .body(
             `You've already searched the area recently. Try again <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
@@ -73,7 +73,7 @@ export default {
 
     const pickPayload = ui()
       .color(config.colors.default)
-      .title("🔍 Where Do You Search?")
+      .title(`${config.emojis.search} Where Do You Search?`)
       .body(
         "Pick a location to search. One of them might have something valuable...",
       )
@@ -100,7 +100,7 @@ export default {
         await interaction.update(
           ui()
             .color(config.colors.default)
-            .title(`🔍 Found Something at ${location}!`)
+            .title(`${config.emojis.search} Found Something at ${location}!`)
             .body(
               `You rummaged around and discovered a hidden stash!\n\nYou found **${coins.toLocaleString()}** ${config.emojis.coin}.`,
             )
@@ -113,7 +113,7 @@ export default {
         await interaction.update(
           ui()
             .color(config.colors.default)
-            .title(`🔍 Nothing at ${location}`)
+            .title(`${config.emojis.search} Nothing at ${location}`)
             .body(flavor)
             .footer("Cooldown: 30 minutes • Baitin • /help")
             .build() as any,

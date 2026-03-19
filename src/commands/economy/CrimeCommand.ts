@@ -33,16 +33,16 @@ export default {
       return ctx.reply({
         ...ui()
           .color(config.colors.default)
-          .title("🚔 Lay Low for Now")
+          .title(`${config.emojis.crime} Lay Low for Now`)
           .body(
             `The game warden is still watching you. Try again <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       } as any);
     }
 
-    await ctx.deferReply(src/commands/economy/CrimeCommand.ts);
+    await ctx.deferReply({});
 
     const crime = CRIMES[Math.floor(Math.random() * CRIMES.length)];
     await setCooldown(ctx.user.id, "crime", COOLDOWN_SECS);
@@ -55,7 +55,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🎭 Got Away With It")
+          .title(`${config.emojis.disguise} Got Away With It`)
           .body(
             `You were caught ${crime} — but slipped through the net!\n\nYou pocketed **${coins.toLocaleString()}** ${config.emojis.coin} and nobody was the wiser.`,
           )
@@ -70,7 +70,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🚔 Busted!")
+          .title(`${config.emojis.crime} Busted!`)
           .body(
             `You were caught ${crime} and the game warden nabbed you.\n\n${fineText}`,
           )

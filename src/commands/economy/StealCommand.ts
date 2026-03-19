@@ -47,7 +47,7 @@ export default {
       try {
         const targetUser = await client.users.fetch(target.id);
         await targetUser.send({
-          content: `🚨 **${ctx.user.username}** stole ${result.type === "item" ? `your **${result.itemEmoji} ${result.itemName}**` : `**${result.amount.toLocaleString()}** ${config.emojis.coin}`} from you! You are immune from theft for the next 30 minutes.`,
+          content: `${config.emojis.alert} **${ctx.user.username}** stole ${result.type === "item" ? `your **${result.itemEmoji} ${result.itemName}**` : `**${result.amount.toLocaleString()}** ${config.emojis.coin}`} from you! You are immune from theft for the next 30 minutes.`,
         });
       } catch {}
 
@@ -59,11 +59,16 @@ export default {
         achText = `\n\n🏅 **Achievement Unlocked!**\n${lines}`;
       }
 
+      let bountyText = "";
+      if (result.bountyCollected) {
+        bountyText = `\n\n${config.emojis.bounty} **Bounty Collected!** +**${result.bountyCollected.toLocaleString()}** ${config.emojis.coin}`;
+      }
+
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🦹 Heist Successful!")
-          .body(description + achText)
+          .title(`${config.emojis.heist} Heist Successful!`)
+          .body(description + achText + bountyText)
           .build() as any,
       );
     }
@@ -84,7 +89,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🛡️ Target is Immune")
+          .title(`${config.emojis.shield} Target is Immune`)
           .body(
             `**${target.username}** is protected from theft until <t:${Math.floor(result.expiresAt / 1000)}:R>.`,
           )
@@ -108,7 +113,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🚔 Caught Red-Handed!")
+          .title(`${config.emojis.crime} Caught Red-Handed!`)
           .body(
             `**${target.username}** caught you in the act! You were fined **${result.fine.toLocaleString()}** ${config.emojis.coin}.`,
           )
@@ -120,7 +125,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("💸 Nothing to Steal")
+          .title(`${config.emojis.nothing} Nothing to Steal`)
           .body(
             `**${target.username}** doesn't have enough coins or items to steal from!`,
           )

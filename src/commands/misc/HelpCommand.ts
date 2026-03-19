@@ -19,7 +19,7 @@ const CATEGORIES: Record<
 > = {
   general: {
     label: "General",
-    emoji: "🌐",
+    emoji: config.emojis.cat_general,
     commands: [
       { name: "getting-started", desc: "New? Start here — learn the basics." },
       { name: "ping", desc: "Check bot and API latency." },
@@ -31,7 +31,7 @@ const CATEGORIES: Record<
   },
   rewards: {
     label: "Easy Rewards",
-    emoji: "💰",
+    emoji: config.emojis.cat_rewards,
     commands: [
       { name: "daily", desc: "Claim your daily coin reward." },
       { name: "weekly", desc: "Claim your weekly coin reward." },
@@ -40,11 +40,12 @@ const CATEGORIES: Record<
       { name: "beg", desc: "Beg at the docks for spare change." },
       { name: "search", desc: "Search around for hidden loot and coins." },
       { name: "leaderboard", desc: "View the top fishers on the server." },
+      { name: "quests", desc: "View daily & weekly quests for gems." },
     ],
   },
   fishing: {
     label: "Fishing",
-    emoji: "🎣",
+    emoji: config.emojis.cat_fishing,
     commands: [
       { name: "cast", desc: "Cast your line and catch fish." },
       { name: "sell", desc: "Sell fish from your inventory." },
@@ -57,12 +58,14 @@ const CATEGORIES: Record<
   },
   games: {
     label: "Games",
-    emoji: "🎰",
+    emoji: config.emojis.cat_games,
     commands: [
-      { name: "gamble", desc: "Bet coins in a dice game." },
+      { name: "blackjack", desc: "Play blackjack with card emojis!" },
+      { name: "gamble", desc: "Coinflip, roulette, dice, and more." },
       { name: "slots", desc: "Spin the slot machine." },
       { name: "flip", desc: "Flip a coin for double or nothing." },
       { name: "crime", desc: "Commit a crime for big rewards." },
+      { name: "balance", desc: "Check your coin balance." },
       { name: "sack", desc: "View and manage your sack inventory." },
     ],
   },
@@ -71,9 +74,17 @@ const CATEGORIES: Record<
     emoji: "⚔️",
     commands: [
       { name: "steal", desc: "Attempt to steal coins from another player." },
+      { name: "duel", desc: "Challenge a player to a fishing-themed duel." },
+      { name: "fish-off", desc: "Competitive fishing duel (3 rounds)." },
+      { name: "heist", desc: "Assemble a crew and rob a player." },
+      { name: "bounty", desc: "Place bounties or view the board." },
+      { name: "give", desc: "Gift coins or items to another player." },
+      { name: "trade", desc: "Direct item trading with another player." },
+      { name: "rep", desc: "Give daily reputation to a player." },
+      { name: "drop", desc: "Drop coins in channel for grabs." },
+      { name: "gift-box", desc: "Send a mystery gift box." },
+      { name: "lottery", desc: "Buy tickets for the daily lottery." },
       { name: "market", desc: "Buy and sell items on the player market." },
-      { name: "pets", desc: "View and manage your pets." },
-      { name: "profile", desc: "View another player's profile." },
     ],
   },
 };
@@ -151,7 +162,7 @@ export default {
       const command = client.commands.get(commandName.toLowerCase());
       if (!command) {
         return ctx.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: ui()
             .color(config.colors.default)
             .title("Command Not Found")
@@ -173,7 +184,7 @@ export default {
 
       const builder = ui()
         .color(config.colors.default)
-        .title(`📖 /${command.name}`)
+        .title(`${config.emojis.help} /${command.name}`)
         .quote(command.description)
         .divider()
         .body(
@@ -234,14 +245,14 @@ export default {
 
         const infoPayload = ui()
           .color(config.colors.default)
-          .title(`📖 /${command.name}`)
+          .title(`${config.emojis.help} /${command.name}`)
           .quote(command.description)
           .body(`**Usage:** ${command.usage.join(", ")}`)
           .footer(`Use /help ${command.name} for full details`)
           .build();
 
         await i.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: infoPayload.components,
         } as any);
       }

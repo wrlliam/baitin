@@ -63,6 +63,7 @@ export {
 /** The payload shape returned by UIBuilder.build() — spread directly into ctx.reply() / ctx.editReply() */
 export type UIPayload = {
   components: any[];
+  flags: number;
 };
 
 export type DisplayComponent =
@@ -472,6 +473,7 @@ export class UIBuilder {
    */
   build(opts?: { rows?: ActionRowBuilder<any>[] }): UIPayload {
     return {
+      flags: MessageFlags.IsComponentsV2,
       components: [this._container, ...(opts?.rows ?? [])],
     };
   }
@@ -544,8 +546,8 @@ const NOTICE_COLORS: Record<NoticeKind, number> = {
 const NOTICE_ICONS: Record<NoticeKind, string> = {
   success: config.emojis.tick,
   error: config.emojis.cross,
-  info: "ℹ️",
-  warning: "⚠️",
+  info: config.emojis.help,
+  warning: config.emojis.warning,
 };
 
 /** Quick single-line notice inside a colored container. */
@@ -553,7 +555,7 @@ export function notice(kind: NoticeKind, message: string): UIPayload {
   const icon = NOTICE_ICONS[kind];
   const color = NOTICE_COLORS[kind];
   return {
-    
+    flags: MessageFlags.IsComponentsV2,
     components: [container(color, [text(`${icon} ${message}`)])],
   };
 }

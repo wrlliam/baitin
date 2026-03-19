@@ -61,7 +61,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title(`🎪 ${event.name}`)
+          .title(`${config.emojis.event} ${event.name}`)
           .text(event.description)
           .divider()
           .text(

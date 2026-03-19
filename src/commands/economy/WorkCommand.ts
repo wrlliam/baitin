@@ -3,6 +3,7 @@ import { ui, ButtonStyle } from "@/ui";
 import { Command } from "@/core/typings";
 import { addCoins, getOrCreateProfile } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
+import { incrementQuestProgress } from "@/modules/fishing/quests";
 import {
   ApplicationCommandType,
   MessageFlags,
@@ -91,7 +92,7 @@ async function runMathQuiz(
   const msg = await ctx.editReply(
     ui()
       .color(config.colors.default)
-      .title("🧮 Math Quiz")
+      .title(`${config.emojis.math} Math Quiz`)
       .text(`**${a} ${op} ${b} = ?**\n\nYou have 20 seconds to answer.`)
       .build({ rows: [row] }) as any,
   );
@@ -133,7 +134,7 @@ async function runMathQuiz(
         await interaction.update(
           ui()
             .color(config.colors.success)
-            .title("✅ Correct!")
+            .title(`${config.emojis.correct} Correct!`)
             .text(
               `You solved **${a} ${op} ${b} = ${answer}** correctly!\n\nYou earned **${coins.toLocaleString()}** ${config.emojis.coin}!`,
             )
@@ -144,7 +145,7 @@ async function runMathQuiz(
         await interaction.update(
           ui()
             .color(config.colors.error)
-            .title("❌ Wrong Answer")
+            .title(`${config.emojis.wrong} Wrong Answer`)
             .text(
               `The correct answer was **${answer}**. Better luck next time!`,
             )
@@ -174,7 +175,7 @@ async function runMathQuiz(
         await ctx.editReply(
           ui()
             .color(config.colors.warn)
-            .title("⏱️ Time's Up")
+            .title(`${config.emojis.timeout} Time's Up`)
             .text(`The correct answer was **${answer}**. Try again next time!`)
             .footer("Cooldown: 1 hour • Baitin • /help")
             .build({ rows: [timeoutRow] }) as any,
@@ -252,7 +253,7 @@ async function runMemoryCards(
   let msg = await ctx.editReply(
     ui()
       .color(config.colors.default)
-      .title("🃏 Memory Cards")
+      .title(`${config.emojis.cards} Memory Cards`)
       .text("Match all 3 pairs! You have 60 seconds.")
       .build({ rows: createRows() }) as any,
   );
@@ -285,7 +286,7 @@ async function runMemoryCards(
         await interaction.update(
           ui()
             .color(config.colors.default)
-            .title("🃏 Memory Cards")
+            .title(`${config.emojis.cards} Memory Cards`)
             .text(`Flipped 1 card. Find its match!`)
             .build({ rows: createRows() }) as any,
         );
@@ -305,7 +306,7 @@ async function runMemoryCards(
             await interaction.update(
               ui()
                 .color(config.colors.success)
-                .title("✅ You Won!")
+                .title(`${config.emojis.correct} You Won!`)
                 .text(
                   `You matched all 3 pairs!\n\nYou earned **${coins.toLocaleString()}** ${config.emojis.coin}!`,
                 )
@@ -319,7 +320,7 @@ async function runMemoryCards(
           await interaction.update(
             ui()
               .color(config.colors.default)
-              .title("🃏 Memory Cards")
+              .title(`${config.emojis.cards} Memory Cards`)
               .text(`Match found! ${matchedCount}/3 pairs matched.`)
               .build({ rows: createRows() }) as any,
           );
@@ -332,7 +333,7 @@ async function runMemoryCards(
           await interaction.update(
             ui()
               .color(config.colors.default)
-              .title("🃏 Memory Cards")
+              .title(`${config.emojis.cards} Memory Cards`)
               .text("No match... flipping back.")
               .build({ rows: createRows() }) as any,
           );
@@ -347,7 +348,7 @@ async function runMemoryCards(
           msg = await ctx.editReply(
             ui()
               .color(config.colors.default)
-              .title("🃏 Memory Cards")
+              .title(`${config.emojis.cards} Memory Cards`)
               .text(`${matchedCount}/3 pairs matched. Keep trying!`)
               .build({ rows: createRows() }) as any,
           );
@@ -379,7 +380,7 @@ async function runMemoryCards(
         await ctx.editReply(
           ui()
             .color(config.colors.warn)
-            .title("⏱️ Time's Up")
+            .title(`${config.emojis.timeout} Time's Up`)
             .text(`You matched **${matchedCount}/3** pairs. Better luck next time!`)
             .footer("Cooldown: 1 hour • Baitin • /help")
             .build({ rows: [row1, row2] }) as any,
@@ -410,7 +411,7 @@ async function runSequenceMemory(
   await ctx.editReply(
     ui()
       .color(config.colors.default)
-      .title("🧠 Sequence Memory")
+      .title(`${config.emojis.brain} Sequence Memory`)
       .text(
         `**Memorise this sequence:**\n\n${sequence.join("  ")}\n\nYou have 5 seconds to memorise it.`,
       )
@@ -448,7 +449,7 @@ async function runSequenceMemory(
   const msg = await ctx.editReply(
     ui()
       .color(config.colors.default)
-      .title("🧠 Sequence Memory")
+      .title(`${config.emojis.brain} Sequence Memory`)
       .text(
         `What was the **${positionNames[questionIdx]}** emoji in the sequence?\n\nYou have 15 seconds.`,
       )
@@ -492,7 +493,7 @@ async function runSequenceMemory(
         await interaction.update(
           ui()
             .color(config.colors.success)
-            .title("✅ Correct!")
+            .title(`${config.emojis.correct} Correct!`)
             .text(
               `The **${positionNames[questionIdx]}** emoji was **${correctEmoji}**!\n\nYou earned **${coins.toLocaleString()}** ${config.emojis.coin}!`,
             )
@@ -503,7 +504,7 @@ async function runSequenceMemory(
         await interaction.update(
           ui()
             .color(config.colors.error)
-            .title("❌ Wrong Answer")
+            .title(`${config.emojis.wrong} Wrong Answer`)
             .text(
               `The **${positionNames[questionIdx]}** emoji was **${correctEmoji}**. Better luck next time!`,
             )
@@ -535,7 +536,7 @@ async function runSequenceMemory(
         await ctx.editReply(
           ui()
             .color(config.colors.warn)
-            .title("⏱️ Time's Up")
+            .title(`${config.emojis.timeout} Time's Up`)
             .text(
               `The **${positionNames[questionIdx]}** emoji was **${correctEmoji}**. Try again next time!`,
             )
@@ -563,16 +564,16 @@ export default {
       return ctx.reply({
         ...ui()
           .color(config.colors.default)
-          .title("🪣 Still Tired!")
+          .title(`${config.emojis.work} Still Tired!`)
           .body(
             `You're still recovering from your last shift. Come back <t:${Math.floor(cooldown.expiresAt! / 1000)}:R>.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       } as any);
     }
 
-    await ctx.deferReply(src/commands/economy/WorkCommand.ts);
+    await ctx.deferReply({});
 
     const profile = await getOrCreateProfile(ctx.user.id);
     const coins = Math.min(
@@ -589,6 +590,7 @@ export default {
     // Only add coins if the game was won
     if (success) {
       await addCoins(ctx.user.id, coins);
+      void incrementQuestProgress(ctx.user.id, "work");
     }
   },
 } as Command;

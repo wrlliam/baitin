@@ -5,7 +5,7 @@ import { addCoins, subtractCoins } from "@/modules/fishing/economy";
 import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COST = 50;
-const SYMBOLS = ["🐟", "🦐", "🦞", "🐡", "💎"];
+const SYMBOLS = [config.emojis.fish, "🦐", "🦞", "🐡", config.emojis.gem];
 
 function spin(): string {
   return SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
@@ -34,38 +34,38 @@ export default {
             `You need at least **${COST}** ${config.emojis.coin} to spin the slots.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       } as any);
     }
 
-    await ctx.deferReply(src/commands/economy/SlotsCommand.ts);
+    await ctx.deferReply({});
 
     const r1 = spin();
     const r2 = spin();
     const r3 = spin();
 
     // Animation frames
-    await ctx.editReply({ content: `> ⬛ ⬛ ⬛\n*Spinning...*` });
+    await ctx.editReply({ content: `> ◾ ◾ ◾\n*Spinning...*` });
     await sleep(500);
-    await ctx.editReply({ content: `> ${r1} ⬛ ⬛\n*Spinning...*` });
+    await ctx.editReply({ content: `> ${r1} ◾ ◾\n*Spinning...*` });
     await sleep(500);
-    await ctx.editReply({ content: `> ${r1} ${r2} ⬛\n*Spinning...*` });
+    await ctx.editReply({ content: `> ${r1} ${r2} ◾\n*Spinning...*` });
     await sleep(500);
 
     let payout = 0;
     let resultText = "";
 
-    if (r1 === r2 && r2 === r3 && r1 === "💎") {
+    if (r1 === r2 && r2 === r3 && r1 === config.emojis.gem) {
       payout = 500;
-      resultText = `💎 **JACKPOT!** Three diamonds! You won **${payout}** ${config.emojis.coin}!`;
+      resultText = `${config.emojis.gem} **JACKPOT!** Three diamonds! You won **${payout}** ${config.emojis.coin}!`;
     } else if (r1 === r2 && r2 === r3) {
       payout = 200;
-      resultText = `🎉 **Three of a kind!** You won **${payout}** ${config.emojis.coin}!`;
+      resultText = `${config.emojis.party} **Three of a kind!** You won **${payout}** ${config.emojis.coin}!`;
     } else if (r1 === r2 || r2 === r3 || r1 === r3) {
       payout = COST;
-      resultText = `🤏 **Two of a kind** — you got your bet back (**${payout}** ${config.emojis.coin}).`;
+      resultText = `${config.emojis.coin} **Two of a kind** — you got your bet back (**${payout}** ${config.emojis.coin}).`;
     } else {
-      resultText = `😬 No match. You lost **${COST}** ${config.emojis.coin}.`;
+      resultText = `${config.emojis.loss} No match. You lost **${COST}** ${config.emojis.coin}.`;
     }
 
     if (payout > 0) await addCoins(ctx.user.id, payout);
@@ -79,7 +79,7 @@ export default {
 
     const result = ui()
       .color(color)
-      .title("🎰 Slot Machine")
+      .title(`${config.emojis.slots} Slot Machine`)
       .body(`> ${r1} ${r2} ${r3}\n\n${resultText}`)
       .footer(`Cost: ${COST} coins per spin • Baitin • /help`)
       .build();

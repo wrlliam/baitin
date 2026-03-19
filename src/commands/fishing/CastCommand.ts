@@ -4,6 +4,7 @@ import { Command } from "@/core/typings";
 import { tip } from "@/data/tip";
 import { canFish, doFish } from "@/modules/fishing/fishing";
 import { sellItem } from "@/modules/fishing/inventory";
+import { incrementQuestProgress } from "@/modules/fishing/quests";
 import { capitalise } from "@/utils";
 import { db } from "@/db";
 import { fishingLog } from "@/db/schema";
@@ -35,19 +36,32 @@ export default {
       });
     }
 
-    await ctx.deferReply(src/commands/fishing/CastCommand.ts);
+    await ctx.deferReply();
 
     const fishPromise = doFish(ctx.user.id);
 
     await new Promise((r) => setTimeout(r, config.fishing.castAnimationDelay));
     const stage2Message =
       Math.random() < 0.6
-        ? "🎣 Something's nibbling..."
-        : "🌊 The water is still...";
+        ? `${config.emojis.rod} Something's nibbling...`
+        : `${config.emojis.rain_drop} The water is still...`;
 
     await ctx.editReply({ content: stage2Message });
 
     const fishedResult = await fishPromise;
+
+    // Quest progress (fire-and-forget)
+    void incrementQuestProgress(ctx.user.id, "cast");
+    if (fishedResult.item.category === "fish") {
+      void incrementQuestProgress(ctx.user.id, "catch_fish");
+      void incrementQuestProgress(
+        ctx.user.id,
+        "catch_rarity",
+        fishedResult.item.rarity,
+      );
+    } else if (fishedResult.item.category === "junk") {
+      void incrementQuestProgress(ctx.user.id, "catch_junk");
+    }
 
     await new Promise((r) => setTimeout(r, config.fishing.castAnimationDelay));
 
@@ -56,11 +70,11 @@ export default {
     let extraBody = "";
     if (fishedResult.rodBroke) {
       extraBody =
-        "\n\n⚠️ **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.";
+        "\n\n${config.emojis.warning} **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.";
     }
     if (fishedResult.streakBonus && fishedResult.streakDay) {
       const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
-      extraBody += `\n\n🔥 **${fishedResult.streakDay}-day streak!** +${bonusPct}% XP & coins bonus.`;
+      extraBody += `\n\n${config.emojis.fire} **${fishedResult.streakDay}-day streak!** +${bonusPct}% XP & coins bonus.`;
     }
     if (
       fishedResult.newAchievements &&
@@ -72,7 +86,7 @@ export default {
             `${a.emoji} **${a.name}** — ${a.description} (+${a.coinReward}${config.emojis.coin})`,
         )
         .join("\n");
-      extraBody += `\n\n🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**\n${achLines}`;
+      extraBody += `\n\n${config.emojis.medal} **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**\n${achLines}`;
     }
 
     const castResult = ui()
@@ -80,21 +94,21 @@ export default {
       .title(`${fishedResult.item.emoji} ${fishedResult.item.name}`)
       .body(
         `*${fishedResult.item.description}*\n\n
-You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
+You reeled in a ${fishedResult.item.name} (${config.emojis.coin} ${fishedResult.item.price})`,
       )
       .divider()
       .text(
         `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`,
       )
       .text(
-        `⭐ **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`,
+        `${config.emojis.star} **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`,
       )
       .divider();
 
     if (fishedResult.rodBroke) {
       castResult
         .text(
-          "⚠️ **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.",
+          "${config.emojis.warning} **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.",
         )
         .divider();
     }
@@ -103,7 +117,7 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
       const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
       castResult
         .text(
-          `🔥 **${fishedResult.streakDay}-day Streak!** +${bonusPct}% XP & coins bonus.`,
+          `${config.emojis.fire} **${fishedResult.streakDay}-day Streak!** +${bonusPct}% XP & coins bonus.`,
         )
         .divider();
     }
@@ -117,7 +131,7 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
         .join("\n");
       castResult
         .text(
-          `🏅 **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`,
+          `${config.emojis.medal} **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`,
         )
         .text(achLines)
         .divider();
@@ -135,7 +149,8 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
         btns.push(
           new ButtonBuilder()
             .setCustomId(`cast:sell:${fishedResult.item.id}:${ctx.user.id}`)
-            .setLabel("💰 Sell")
+            .setEmoji(config.emojis.pouch)
+            .setLabel("Sell")
             .setStyle(ButtonStyle.Success)
             .setDisabled(disabled),
         );
@@ -232,7 +247,7 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
 
         await i.reply({
           flags: MessageFlags.Ephemeral,
-          ...ui()
+          ...(ui()
             .color(config.colors.default)
             .title(`${item.emoji} ${item.name}`)
             .text(`*${item.description}*`)
@@ -241,7 +256,7 @@ You reeled in a ${fishedResult.item.name} (🪙 ${fishedResult.item.price})`,
               `**Total Caught:** ${total}\n` +
                 `**First Caught:** ${firstTs ? `<t:${firstTs}:D>` : "Just now"}`,
             )
-            .build() as any,
+            .build() as any),
         });
         return;
       }

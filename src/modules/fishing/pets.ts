@@ -254,6 +254,36 @@ export async function upgradePet(
   return { success: true, newLevel };
 }
 
+export async function speedUpIncubation(
+  userId: string,
+  incubatorId: string,
+  minutes: number,
+): Promise<{ success: boolean; error?: string; newHatchesAt?: Date }> {
+  const rows = await db
+    .select()
+    .from(eggIncubator)
+    .where(eq(eggIncubator.id, incubatorId));
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) return { success: false, error: "Incubator not found." };
+  if (row.hatched) return { success: false, error: "This egg has already hatched." };
+  if (row.failed) return { success: false, error: "This egg has already failed." };
+
+  const now = new Date();
+  if (now >= row.hatchesAt) return { success: false, error: "This egg is already ready to collect!" };
+
+  const newHatchesAt = new Date(row.hatchesAt.getTime() - minutes * 60 * 1000);
+  // Don't set it earlier than now
+  const clampedHatchesAt = newHatchesAt < now ? now : newHatchesAt;
+
+  await db
+    .update(eggIncubator)
+    .set({ hatchesAt: clampedHatchesAt })
+    .where(eq(eggIncubator.id, incubatorId));
+
+  return { success: true, newHatchesAt: clampedHatchesAt };
+}
+
 export async function getUserPets(userId: string) {
   return db.select().from(petInstance).where(eq(petInstance.userId, userId));
 }

@@ -1,5 +1,5 @@
 import config from "@/config";
-import { guildConfig } from "@/db/schema";
+import { guildSettings } from "@/db/schema";
 import { Guild, GuildMember, PermissionsBitField, User } from "discord.js";
 
 export type Perm = {

@@ -29,11 +29,11 @@ import {
 const PAGE_SIZE = 5;
 
 const FILTER_CHOICES = [
-  { label: "All", value: "all", emoji: "📦" },
-  { label: "Fish", value: "fish", emoji: "🐟" },
-  { label: "Junk", value: "junk", emoji: "🗑️" },
-  { label: "Bait", value: "bait", emoji: "🪱" },
-  { label: "Rod", value: "rod", emoji: "🎣" },
+  { label: "All", value: "all", emoji: config.emojis.market_all },
+  { label: "Fish", value: "fish", emoji: config.emojis.fish },
+  { label: "Junk", value: "junk", emoji: config.emojis.junk },
+  { label: "Bait", value: "bait", emoji: config.emojis.bait },
+  { label: "Rod", value: "rod", emoji: config.emojis.cat_fishing },
 ] as const;
 
 async function buildBrowsePage(page: number, category?: string, userId: string = "") {
@@ -47,7 +47,7 @@ async function buildBrowsePage(page: number, category?: string, userId: string =
 
   const embed = ui()
     .color(config.colors.default)
-    .title("📦 Market Listings")
+    .title(`${config.emojis.market_all} Market Listings`)
     .text(
       total === 0
         ? "No listings found."
@@ -66,8 +66,8 @@ async function buildBrowsePage(page: number, category?: string, userId: string =
         : `${config.emojis.coin} ${l.pricePerUnit.toLocaleString()}/ea`;
 
       const btn = l.isAuction
-        ? ui.btn("🔨 Bid", `mkt:bid:${l.id}`, ButtonStyle.Primary)
-        : ui.btn("💰 Buy", `mkt:buy:${l.id}`, ButtonStyle.Success);
+        ? ui.btn(`${config.emojis.market_bid} Bid`, `mkt:bid:${l.id}`, ButtonStyle.Primary)
+        : ui.btn(`${config.emojis.market_buy} Buy`, `mkt:buy:${l.id}`, ButtonStyle.Success);
 
       embed.section(`${itemLabel}\n-# ${priceLabel}`, btn);
     }
@@ -218,7 +218,7 @@ export default {
     const sub = args.getSubcommand();
 
     if (sub === "browse") {
-      await ctx.deferReply(src/commands/fishing/MarketCommand.ts);
+      await ctx.deferReply({});
       const categoryArg = args.getString("filter") ?? undefined;
       const pageArg = args.getInteger("page") ?? 1;
       let curPage = pageArg;

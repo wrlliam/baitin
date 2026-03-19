@@ -11,8 +11,11 @@ import {
   startIncubation,
   getIncubatingEggs,
   collectHatch,
+  speedUpIncubation,
 } from "@/modules/fishing/pets";
 import { getInventory } from "@/modules/fishing/inventory";
+import { subtractGems } from "@/modules/fishing/quests";
+import { getOrCreateProfile } from "@/modules/fishing/economy";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
@@ -31,6 +34,7 @@ export default {
     "/pets unequip",
     "/pets rename",
     "/pets upgrade",
+    "/pets speedup <slot>",
   ],
   options: [
     {
@@ -125,6 +129,20 @@ export default {
         {
           name: "pet",
           description: "The pet to upgrade.",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+          autocomplete: true,
+        },
+      ],
+    },
+    {
+      name: "speedup",
+      description: "Spend gems to speed up egg incubation (10 gems = -30 min).",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "slot",
+          description: "The incubator slot to speed up.",
           type: ApplicationCommandOptionType.String,
           required: true,
           autocomplete: true,
@@ -257,7 +275,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("🥚 Egg Incubating!")
+          .title(`${config.emojis.egg} Egg Incubating!`)
           .text(
             `${egg?.emoji ?? "🥚"} **${egg?.name ?? eggId}** is now in the incubator.\n\nReady <t:${hatchTs}:R> (<t:${hatchTs}:t>)${egg && egg.failChance > 0 ? `\n\n⚠️ This egg has a **${Math.round(egg.failChance * 100)}%** chance of cracking!` : ""}`,
           )
@@ -284,7 +302,7 @@ export default {
         return ctx.editReply(
           ui()
             .color(config.colors.default)
-            .title("💔 Hatch Failed!")
+            .title(`${config.emojis.pet_hatch_fail} Hatch Failed!`)
             .text(
               "The egg cracked and shattered... nothing survived. Better luck next time.",
             )
@@ -380,6 +398,47 @@ export default {
             `**${petDef?.emoji ?? ""} ${p.name ?? petDef?.name ?? "Pet"}** is now **Level ${result.newLevel}**.\nNew buffs: ${buffPreview}`,
           )
           .footer(`Cost: ${cost.toLocaleString()} coins`)
+          .build() as any,
+      );
+    }
+
+    if (sub === "speedup") {
+      const SPEEDUP_COST = 10; // gems
+      const SPEEDUP_MINUTES = 30;
+
+      const slotId = args.getString("slot", true);
+      const profile = await getOrCreateProfile(ctx.user.id);
+
+      if (profile.gems < SPEEDUP_COST) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} Not enough gems! You need **${SPEEDUP_COST}** ${config.emojis.gem} (you have ${profile.gems}).`,
+        });
+      }
+
+      const success = await subtractGems(ctx.user.id, SPEEDUP_COST);
+      if (!success) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} Not enough gems!`,
+        });
+      }
+
+      const result = await speedUpIncubation(ctx.user.id, slotId, SPEEDUP_MINUTES);
+      if (!result.success) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} ${result.error}`,
+        });
+      }
+
+      const newHatchTs = Math.floor(result.newHatchesAt!.getTime() / 1000);
+
+      return ctx.editReply(
+        ui()
+          .color(config.colors.success)
+          .title(`${config.emojis.gem} Incubation Sped Up!`)
+          .text(
+            `Reduced hatch time by **${SPEEDUP_MINUTES} minutes**.\n\nNew hatch time: <t:${newHatchTs}:R> (<t:${newHatchTs}:t>)`,
+          )
+          .footer(`Cost: ${SPEEDUP_COST} gems`)
           .build() as any,
       );
     }

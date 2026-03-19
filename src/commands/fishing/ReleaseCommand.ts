@@ -84,7 +84,7 @@ export default {
     return ctx.editReply(
       ui()
         .color(config.colors.default)
-        .title("🐟 Released!")
+        .title(`${config.emojis.release} Released!`)
         .body(
           `Released ${fish.emoji} **${fish.name}** back into the water. *(+${xpGained} XP)*`,
         )

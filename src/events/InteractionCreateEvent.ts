@@ -45,7 +45,7 @@ export default {
       ) {
         const payload = defaultEmbeds["missing-permissions"]();
         return interaction.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: payload.components,
         } as any);
       }
@@ -53,7 +53,7 @@ export default {
       if (command.devOnly && interaction.user.id !== config.ids.dev) {
         const payload = defaultEmbeds["dev-only"]();
         return interaction.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: payload.components,
         } as any);
       }
@@ -66,7 +66,7 @@ export default {
       ) {
         const payload = defaultEmbeds["missing-permissions"]();
         return interaction.reply({
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: payload.components,
         } as any);
       }
@@ -74,7 +74,9 @@ export default {
       // Auto-defer ASAP to beat Discord's 3-second window
       if (command.defer !== "none") {
         try {
-          await interaction.deferReply({ ephemeral: command.defer === true });
+          const flags = command.defer === true ? MessageFlags.Ephemeral : 0;
+          //@ts-ignore
+          await interaction.deferReply({ flags: flags });
         } catch (deferErr) {
           warn(`Defer failed for /${cmdName} — interaction may have expired: ${deferErr}`);
           return;
@@ -136,124 +138,6 @@ export default {
           });
         } catch (e) {
           err(`Button welcome_get_started failed: ${e}`, 0);
-        }
-      }
-
-      // Blackjack buttons
-      if (interaction.customId.startsWith("blackjack:")) {
-        const [, action, ...rest] = interaction.customId.split(":");
-        const gameId = rest.join(":");
-        if (!gameId) {
-          return interaction.reply({
-            content: `${config.emojis.cross} Invalid game ID.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        const userId = gameId.split(":")[1];
-        if (interaction.user.id !== userId) {
-          return interaction.reply({
-            content: `${config.emojis.cross} You don't have permission to use this button.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        // Handle blackjack action
-        try {
-          const { getGame, hitPlayer, settleGame, deleteGame, handValue, handStr, cardStr } = await import("@/modules/games/blackjack");
-          const { addCoins: addGameCoins } = await import("@/modules/fishing/economy");
-          const { ui, ButtonStyle } = await import("@/ui");
-
-          const game = getGame(gameId);
-          if (!game) {
-            return interaction.reply({
-              content: `${config.emojis.cross} Game expired. Please start a new game.`,
-              flags: MessageFlags.Ephemeral,
-            });
-          }
-
-          if (action === "hit") {
-            const newCard = hitPlayer(gameId);
-            if (!newCard) {
-              return interaction.reply({
-                content: `${config.emojis.cross} Game already settled.`,
-                flags: MessageFlags.Ephemeral,
-              });
-            }
-
-            const playerValue = handValue(game.playerCards);
-
-            if (playerValue > 21) {
-              // Bust
-              deleteGame(gameId);
-              await interaction.deferReply({});
-              return interaction.editReply(
-                ui()
-                  .color(config.colors.error)
-                  .title("♠ Bust!")
-                  .body(
-                    `**Your hand:** ${handStr(game.playerCards)} (**${playerValue}**)\n\nYou busted! You lost **${game.amount.toLocaleString()}** ${config.emojis.coin}.`,
-                  )
-                  .build() as any,
-              );
-            }
-
-            // Continue game
-            await interaction.deferReply({});
-            return interaction.editReply(
-              ui()
-                .color(config.colors.default)
-                .title("♠ Blackjack")
-                .body(
-                  `**Your hand:** ${handStr(game.playerCards)} (**${playerValue}**)\n**Dealer:** ${cardStr(game.dealerCards[0])} + [Hidden]\n\nBet: **${game.amount.toLocaleString()}** ${config.emojis.coin}`,
-                )
-                .buttonRow([
-                  ui.btn("Hit", `blackjack:hit:${gameId}`),
-                  ui.btn("Stand", `blackjack:stand:${gameId}`, ButtonStyle.Danger),
-                ])
-                .footer("Choose hit or stand")
-                .build() as any,
-            );
-          } else if (action === "stand") {
-            const result = settleGame(game);
-            deleteGame(gameId);
-
-            await interaction.deferReply({});
-
-            if (result.payout > 0) {
-              await addGameCoins(interaction.user.id, result.payout);
-            }
-
-            const playerValue = handValue(game.playerCards);
-            const dealerValue = handValue(game.dealerCards);
-
-            return interaction.editReply(
-              ui()
-                .color(
-                  result.result === "win"
-                    ? config.colors.success
-                    : result.result === "push"
-                      ? config.colors.default
-                      : config.colors.error
-                )
-                .title("♠ Blackjack")
-                .body(
-                  `**Your hand:** ${handStr(game.playerCards)} (**${playerValue}**)\n**Dealer:** ${handStr(game.dealerCards)} (**${dealerValue}**)\n\n` +
-                  (result.result === "win"
-                    ? `You won! Payout: **${result.payout.toLocaleString()}** ${config.emojis.coin}`
-                    : result.result === "push"
-                      ? `Push! You get your bet back: **${result.payout.toLocaleString()}** ${config.emojis.coin}`
-                      : `Dealer wins! You lost **${game.amount.toLocaleString()}** ${config.emojis.coin}.`),
-                )
-                .build() as any,
-            );
-          }
-        } catch (e) {
-          err(`Blackjack button handler failed: ${e}`, 0);
-          return interaction.reply({
-            content: `${config.emojis.cross} Something went wrong.`,
-            flags: MessageFlags.Ephemeral,
-          });
         }
       }
 

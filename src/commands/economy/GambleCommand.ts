@@ -6,11 +6,10 @@ import {
   subtractCoins,
 } from "@/modules/fishing/economy";
 import {
-  createGame,
   generateCard,
-  handStr,
   handValue,
   cardStr,
+  cardEmoji,
 } from "@/modules/games/blackjack";
 import {
   ApplicationCommandOptionType,
@@ -31,20 +30,14 @@ const amountOption = {
 
 export default {
   name: "gamble",
-  description: "Play various games to win or lose coins.",
+  description: "Play various mini-games to win or lose coins.",
   type: ApplicationCommandType.ChatInput,
-  usage: ["/gamble coinflip <amount>", "/gamble blackjack <amount>"],
+  usage: ["/gamble coinflip <amount>", "/gamble highlow <amount>", "/gamble roulette <amount>", "/gamble dice <amount>"],
   defer: "none",
   options: [
     {
       name: "coinflip",
       description: "50/50 chance to double your coins.",
-      type: ApplicationCommandOptionType.Subcommand,
-      options: [amountOption],
-    },
-    {
-      name: "blackjack",
-      description: "Play blackjack against the dealer.",
       type: ApplicationCommandOptionType.Subcommand,
       options: [amountOption],
     },
@@ -68,7 +61,8 @@ export default {
     },
   ],
   run: async ({ args, ctx }) => {
-    const subcommand = ctx.options.getSubcommand();
+    //@ts-ignore
+    const subcommand = ctx.options?.getSubcommand();
     const amount = args.getInteger("amount", true);
 
     const paid = await subtractCoins(ctx.user.id, amount);
@@ -81,15 +75,13 @@ export default {
             `You need **${amount.toLocaleString()}** ${config.emojis.coin} to place that bet.`,
           )
           .build(),
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       } as any);
     }
 
     switch (subcommand) {
       case "coinflip":
         return flipGame(ctx, amount);
-      case "blackjack":
-        return blackjackGame(ctx, amount);
       case "highlow":
         return highLowGame(ctx, amount);
       case "roulette":
@@ -103,7 +95,7 @@ export default {
             .title("Unknown Game")
             .body("That game mode isn't available.")
             .build(),
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
         } as any);
     }
   },
@@ -122,7 +114,7 @@ async function flipGame(ctx: any, amount: number) {
   return ctx.editReply(
     ui()
       .color(won ? config.colors.success : config.colors.error)
-      .title("🪙 Coin Flip")
+      .title(`${config.emojis.flip} Coin Flip`)
       .body(
         (won ? FLIP_WIN : FLIP_LOSE)[Math.floor(Math.random() * (won ? FLIP_WIN.length : FLIP_LOSE.length))] +
         "\n\n" +
@@ -135,50 +127,6 @@ async function flipGame(ctx: any, amount: number) {
   );
 }
 
-async function blackjackGame(ctx: any, amount: number) {
-  await ctx.deferReply({});
-
-  const game = createGame(ctx.user.id, amount);
-  const gameId = `bj:${ctx.user.id}:${game.timestamp}`;
-  const playerValue = handValue(game.playerCards);
-
-  // Check for natural blackjack
-  if (playerValue === 21) {
-    const dealerValue = handValue(game.dealerCards);
-    const winnings = dealerValue === 21 ? amount : amount * 2.5;
-    await addCoins(ctx.user.id, Math.floor(winnings));
-
-    return ctx.editReply(
-      ui()
-        .color(dealerValue === 21 ? config.colors.default : config.colors.success)
-        .title("♠ Blackjack!")
-        .body(
-          `**Your hand:** ${handStr(game.playerCards)} (**21**)\n**Dealer:** ${cardStr(game.dealerCards[0])} + [Hidden]\n\n` +
-          (dealerValue === 21
-            ? `Dealer also has blackjack! **Push** — you get your bet back.`
-            : `You hit blackjack! You win **${Math.floor(winnings).toLocaleString()}** ${config.emojis.coin}!`),
-        )
-        .build() as any,
-    );
-  }
-
-  // Reply with hit/stand buttons
-  return ctx.editReply(
-    ui()
-      .color(config.colors.default)
-      .title("♠ Blackjack")
-      .body(
-        `**Your hand:** ${handStr(game.playerCards)} (**${playerValue}**)\n**Dealer:** ${cardStr(game.dealerCards[0])} + [Hidden]\n\nBet: **${amount.toLocaleString()}** ${config.emojis.coin}`,
-      )
-      .buttonRow([
-        ui.btn("Hit", `blackjack:hit:${gameId}`, ButtonStyle.Primary),
-        ui.btn("Stand", `blackjack:stand:${gameId}`, ButtonStyle.Danger),
-      ])
-      .footer("Choose hit or stand")
-      .build() as any,
-  );
-}
-
 async function highLowGame(ctx: any, amount: number) {
   await ctx.deferReply({});
 
@@ -187,7 +135,6 @@ async function highLowGame(ctx: any, amount: number) {
   const card1Val = handValue([card1]);
   const card2Val = handValue([card2]);
 
-  const higher = card2Val > card1Val;
   const won = Math.random() < 0.5;
 
   if (won) await addCoins(ctx.user.id, amount * 2);
@@ -195,9 +142,9 @@ async function highLowGame(ctx: any, amount: number) {
   return ctx.editReply(
     ui()
       .color(won ? config.colors.success : config.colors.error)
-      .title("📈 Higher or Lower?")
+      .title(`${config.emojis.higher_lower} Higher or Lower?`)
       .body(
-        `First card: **${cardStr(card1)}** (${card1Val})\nSecond card: **${cardStr(card2)}** (${card2Val})\n\n` +
+        `First card: ${cardEmoji(card1)} **${cardStr(card1)}** (${card1Val})\nSecond card: ${cardEmoji(card2)} **${cardStr(card2)}** (${card2Val})\n\n` +
         (won
           ? `You guessed correctly! You won **${amount.toLocaleString()}** ${config.emojis.coin}!`
           : `Wrong guess! You lost **${amount.toLocaleString()}** ${config.emojis.coin}.`),
@@ -221,7 +168,7 @@ async function rouletteGame(ctx: any, amount: number) {
   return ctx.editReply(
     ui()
       .color(won ? config.colors.success : config.colors.error)
-      .title("🎡 Roulette")
+      .title(`${config.emojis.roulette} Roulette`)
       .body(
         `Wheel spins...\n**${spinResult}**\n\n` +
         (won
@@ -246,9 +193,9 @@ async function diceGame(ctx: any, amount: number) {
   return ctx.editReply(
     ui()
       .color(won ? config.colors.success : config.colors.error)
-      .title("🎲 Dice Roll")
+      .title(`${config.emojis.dice} Dice Roll`)
       .body(
-        `🎲 ${roll1} + 🎲 ${roll2} = **${total}**\n\n` +
+        `${config.emojis.dice} ${roll1} + ${config.emojis.dice} ${roll2} = **${total}**\n\n` +
         (won
           ? `Lucky number! You won **${amount.toLocaleString()}** ${config.emojis.coin}!`
           : `No luck. You lost **${amount.toLocaleString()}** ${config.emojis.coin}.`),

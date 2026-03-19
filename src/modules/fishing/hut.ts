@@ -233,7 +233,7 @@ export async function processHutCatch(
   if (!result || result.items.length === 0) return;
 
   const messagePayload = {
-    content: `🏚️ **Your hut caught some fish!**\n${result.items
+    content: `${config.emojis.hut} **Your hut caught some fish!**\n${result.items
       .map((i) => `${i.emoji} **${i.name}** ×${i.quantity}`)
       .join("\n")}`,
   };

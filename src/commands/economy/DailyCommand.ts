@@ -22,7 +22,7 @@ export default {
       return ctx.editReply(
         ui()
           .color(config.colors.default)
-          .title("📅 Already Claimed Today")
+          .title(`${config.emojis.calendar} Already Claimed Today`)
           .body(`You've already claimed your daily reward.`)
           .divider()
           .text(
@@ -49,7 +49,7 @@ export default {
     return ctx.editReply(
       ui()
         .color(config.colors.default)
-        .title("📅 Daily Reward Claimed!")
+        .title(`${config.emojis.calendar} Daily Reward Claimed!`)
         .body(
           `You claimed your daily reward!`
         )
