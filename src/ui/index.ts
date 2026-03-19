@@ -62,7 +62,6 @@ export {
 
 /** The payload shape returned by UIBuilder.build() — spread directly into ctx.reply() / ctx.editReply() */
 export type UIPayload = {
-  flags: number;
   components: any[];
 };
 
@@ -473,7 +472,6 @@ export class UIBuilder {
    */
   build(opts?: { rows?: ActionRowBuilder<any>[] }): UIPayload {
     return {
-      flags: 0,
       components: [this._container, ...(opts?.rows ?? [])],
     };
   }
