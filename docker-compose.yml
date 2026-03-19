@@ -35,7 +35,7 @@ services:
   baitin:
     platform: linux/amd64
     image: "baitin"
-    expose:
+    ports:
       - "5101:3000"
     environment:
       DATABASE_URL: postgresql://baitin:insecurepassword@postgres:5432/baitin
@@ -54,7 +54,7 @@ services:
   baitin-web:
     platform: linux/amd64
     image: "baitin-web"
-    expose:
+    ports:
       - "5100:3000"
     environment:
       BOT_API_URL: "http://fishing.bnhm.dev"
