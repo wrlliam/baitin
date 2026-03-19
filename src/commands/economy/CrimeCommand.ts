@@ -7,6 +7,7 @@ import { ApplicationCommandType, MessageFlags } from "discord.js";
 
 const COOLDOWN_SECS = 7200; // 2 hours
 const FINE = 150;
+const BASE_PAY = 200;
 
 const CRIMES = [
   "poaching rare fish in protected waters",
@@ -27,7 +28,6 @@ export default {
   defer: "none",
   options: [],
   run: async ({ ctx }) => {
-
     const cooldown = await checkCooldown(ctx.user.id, "crime");
     if (!cooldown.ok) {
       return ctx.reply({
@@ -47,10 +47,10 @@ export default {
     const crime = CRIMES[Math.floor(Math.random() * CRIMES.length)];
     await setCooldown(ctx.user.id, "crime", COOLDOWN_SECS);
 
-    const success = Math.random() < 0.4;
+    const success = Math.random() < 0.15;
 
     if (success) {
-      const coins = 200 + Math.floor(Math.random() * 601);
+      const coins = BASE_PAY + Math.floor(Math.random() * BASE_PAY);
       await addCoins(ctx.user.id, coins);
       return ctx.editReply(
         ui()
