@@ -1,4 +1,5 @@
-import config from "@/config";
+
+import config, { RARITY_EMOJIS as RARITY_EMOJI } from "@/config";
 import { ui, btn, ButtonStyle } from "@/ui";
 import { Command } from "@/core/typings";
 import { redis } from "@/db/redis";
@@ -42,14 +43,7 @@ const WIKI_CATEGORIES: Record<WikiCategory, { label: string; emoji: string; desc
 const CATEGORY_ORDER: WikiCategory[] = ["fish", "junk", "rod", "bait", "pet", "egg", "potion"];
 
 const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-const RARITY_EMOJI: Record<string, string> = {
-  common: "⬜",
-  uncommon: "🟩",
-  rare: "🟦",
-  epic: "🟪",
-  legendary: "🟧",
-  mythic: "🟥",
-};
+// const RARITY_EMOJI
 
 function getCategoryItems(cat: WikiCategory): { id: string; name: string; emoji: string; rarity: string }[] {
   let items: { id: string; name: string; emoji: string; rarity: string }[];

@@ -36,12 +36,12 @@ const RARITY_LABELS: Record<ItemRarity, string> = {
 };
 
 const RARITY_EMOJIS: Record<ItemRarity, string> = {
-  common: "⬜",
-  uncommon: "🟩",
-  rare: "🟦",
-  epic: "🟪",
-  legendary: "🟧",
-  mythic: "🌟",
+  common: "<:common:1484338902876815391>",
+  uncommon: "<:uncommon:1484338906764935268>",
+  rare: "<:rare:1484338901534507280>",
+  epic: "<:epic:1484338187844194405>",
+  legendary: "<:legendary:1484338904915120171>",
+  mythic: "<:mythic:1484338908979396789>",
 };
 
 const PAGE_SIZE = 10;
@@ -73,7 +73,10 @@ function buildPage(
 
   const totalPages = Math.max(1, Math.ceil(fishInTier.length / PAGE_SIZE));
   const safePage = Math.max(0, Math.min(page, totalPages - 1));
-  const slice = fishInTier.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const slice = fishInTier.slice(
+    safePage * PAGE_SIZE,
+    safePage * PAGE_SIZE + PAGE_SIZE,
+  );
 
   const lines = slice.map((f) => {
     const count = catchCounts.get(f.id);
@@ -84,20 +87,21 @@ function buildPage(
   });
 
   // Rarity select menu
-  const rarityMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId("col:rarity")
-      .setPlaceholder("Select rarity...")
-      .addOptions(
-        RARITY_ORDER.map((r) =>
-          new StringSelectMenuOptionBuilder()
-            .setLabel(RARITY_LABELS[r])
-            .setValue(r)
-            .setEmoji(RARITY_EMOJIS[r])
-            .setDefault(r === rarity),
+  const rarityMenu =
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("col:rarity")
+        .setPlaceholder("Select rarity...")
+        .addOptions(
+          RARITY_ORDER.map((r) =>
+            new StringSelectMenuOptionBuilder()
+              .setLabel(RARITY_LABELS[r])
+              .setValue(r)
+              .setEmoji(RARITY_EMOJIS[r])
+              .setDefault(r === rarity),
+          ),
         ),
-      ),
-  );
+    );
 
   // Navigation buttons
   const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -127,7 +131,9 @@ function buildPage(
     )
     .divider()
     .text(lines.join("\n"))
-    .footer(`Use the menu to browse by rarity • Page ${safePage + 1}/${totalPages}`);
+    .footer(
+      `Use the menu to browse by rarity • Page ${safePage + 1}/${totalPages}`,
+    );
 
   return {
     payload: embed.build({ rows: [rarityMenu, navRow] }),
@@ -139,7 +145,11 @@ export default {
   name: "collection",
   description: "Browse your fish collection — every species you've caught.",
   type: ApplicationCommandType.ChatInput,
-  usage: ["/collection", "/collection user:@someone", "/collection rarity:Rare"],
+  usage: [
+    "/collection",
+    "/collection user:@someone",
+    "/collection rarity:Rare",
+  ],
   options: [
     {
       name: "user",
