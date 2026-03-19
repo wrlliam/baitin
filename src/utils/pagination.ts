@@ -43,23 +43,23 @@ export async function paginate(
     const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`page_start_${userId}`)
-        .setEmoji("⏮️")
-        .setStyle(atStart ? ButtonStyle.Secondary : ButtonStyle.Primary)
+        .setEmoji("⏮")
+        .setStyle(ButtonStyle.Secondary)
         .setDisabled(atStart),
       new ButtonBuilder()
         .setCustomId(`page_back_${userId}`)
-        .setEmoji("◀️")
-        .setStyle(atStart ? ButtonStyle.Secondary : ButtonStyle.Primary)
+        .setEmoji("◀")
+        .setStyle(ButtonStyle.Secondary)
         .setDisabled(atStart),
       new ButtonBuilder()
         .setCustomId(`page_forward_${userId}`)
-        .setEmoji("▶️")
-        .setStyle(atEnd ? ButtonStyle.Secondary : ButtonStyle.Primary)
+        .setEmoji("▶")
+        .setStyle(ButtonStyle.Secondary)
         .setDisabled(atEnd),
       new ButtonBuilder()
         .setCustomId(`page_finish_${userId}`)
-        .setEmoji("⏭️")
-        .setStyle(atEnd ? ButtonStyle.Secondary : ButtonStyle.Primary)
+        .setEmoji("⏭")
+        .setStyle(ButtonStyle.Secondary)
         .setDisabled(atEnd),
     );
 
@@ -115,7 +115,7 @@ export async function paginate(
 
   const collector = message.createMessageComponentCollector({
     filter: (i: MessageComponentInteraction) =>
-      i.user.id === interaction.user.id,
+      i.user.id === interaction.user.id && i.customId.startsWith("page_"),
     time: time,
   });
 
@@ -144,9 +144,7 @@ export async function paginate(
 
   collector.on("end", async (_, reason) => {
     if (reason !== "messageDelete") {
-      await interaction
-        .editReply({ components: [] })
-        .catch(() => null);
+      await interaction.editReply({ components: [] }).catch(() => null);
     }
   });
 }

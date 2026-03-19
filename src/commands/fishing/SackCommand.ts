@@ -1,5 +1,5 @@
 import config from "@/config";
-import { ui } from "@/ui";
+import { ui, UIBuilder, UIPayload } from "@/ui";
 import { Command, ExtendedInteraction } from "@/core/typings";
 import { allItems, sackTiers } from "@/data";
 import { getOrCreateProfile } from "@/modules/fishing/economy";
@@ -23,6 +23,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { capitalise } from "@/utils";
+import { paginate, PaginationPage } from "@/utils/pagination";
 
 const CATEGORY_ORDER = [
   "fish",
@@ -103,11 +104,7 @@ function buildInventoryContainer(
     footerParts.push("Max tier reached!");
   }
 
-  const builder = ui()
-    .color(config.colors.default)
-    .title(`${tierEmoji} Your ${tierName}`)
-    .divider();
-
+  const buttons: any[] = [];
   CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).forEach((cat) => {
     grouped[cat].forEach((row) => {
       const item = allItems.get(row.itemId);
@@ -115,20 +112,44 @@ function buildInventoryContainer(
       const sellPrice = Math.floor(
         item.price * config.fishing.sellPriceMultiplier,
       );
-      builder.section(
-        `${item.emoji} **${item.name}**\n-# ×${row.quantity} · ${item.rarity}`,
-        new ButtonBuilder()
-          .setCustomId(`sack_sell_${row.itemId}_${ctx.user.id}`)
-          .setEmoji(config.emojis.coin)
-          .setLabel(`${sellPrice}`)
-          .setStyle(ButtonStyle.Success),
+      buttons.push((builder: UIBuilder) =>
+        builder.section(
+          `${item.emoji} **${item.name}**\n-# ×${row.quantity} · ${item.rarity}`,
+          new ButtonBuilder()
+            .setCustomId(`sack_sell_${row.itemId}_${ctx.user.id}`)
+            .setEmoji(config.emojis.coin)
+            .setLabel(`${sellPrice}`)
+            .setStyle(ButtonStyle.Success),
+        ),
       );
     });
   });
 
-  builder.footer(footerParts.join(" • "));
+  const pages: PaginationPage[] = [];
+  const paginationAmount = buttons.length / 6;
 
-  return builder.build();
+  let start = 0;
+  let finish = 6;
+
+  for (let i = 0; i <= paginationAmount; i++) {
+    const sections = buttons.slice(start, finish);
+    if (sections.length === 0) continue; 
+    const builder = ui()
+      .color(config.colors.default)
+      .title(`${tierEmoji} Your ${tierName}`)
+      .divider();
+
+    sections.forEach((section) => section(builder));
+    builder.footer(footerParts.join(" • "));
+
+    pages.push({
+      payload: builder.build(),
+    });
+    finish += 6;
+    start += 6;
+  }
+
+  return paginate(ctx, pages);
 }
 
 export default {
@@ -203,7 +224,6 @@ export default {
           interaction.customId.startsWith("sack_sell_") &&
           !interaction.customId.match(/_(?:1|all)_\d+$/)
         ) {
-          // Extract item ID from: sack_sell_{itemId}_{userId}
           selectedItemId = interaction.customId
             .replace(/_\d+$/, "")
             .replace("sack_sell_", "");
@@ -307,10 +327,11 @@ export default {
             const itemRow = (await getInventory(ctx.user.id)).find(
               (r) => r.itemId === selectedItemId,
             );
-            const qty =
-              interaction.customId === "sack_sell_all"
-                ? (itemRow?.quantity ?? 1)
-                : 1;
+
+            const qty = interaction.customId.startsWith("sack_sell_all")
+              ? (itemRow?.quantity ?? 1)
+              : 1;
+
             const result = await sellItem(ctx.user.id, selectedItemId, qty);
 
             if (!result.success) {
@@ -321,31 +342,24 @@ export default {
               return;
             }
 
-            await interaction.reply({
-              flags: MessageFlags.Ephemeral,
-              content: `${config.emojis.tick} Sold **${qty}×** item for **${result.coinsGained!.toLocaleString()}** ${config.emojis.coin}!`,
-            });
-
             const freshInv = await getInventory(ctx.user.id);
             const freshUsed = await getItemCount(ctx.user.id);
             const stillOwned = freshInv.find(
               (r) => r.itemId === selectedItemId,
             );
 
-            if (freshInv.length === 0) {
-              await message.edit(
-                ui()
-                  .color(config.colors.default)
-                  .title(`${tierEmoji} Your ${tierName}`)
-                  .body("Your sack is now empty!")
-                  .footer(capacityBar(0, capacity))
-                  .build() as any,
-              );
-              collector.stop();
-              return;
-            }
+            let nextPayload: any;
 
-            if (stillOwned) {
+            if (freshInv.length === 0) {
+              nextPayload = ui()
+                .color(config.colors.default)
+                .title(`${tierEmoji} Your ${tierName}`)
+                .body("Your sack is now empty!")
+                .footer(capacityBar(0, capacity))
+                .build();
+              collector.stop();
+            }
+            else if (stillOwned) {
               const item = allItems.get(selectedItemId!);
               if (item) {
                 const sellEach = Math.floor(
@@ -353,6 +367,7 @@ export default {
                 );
                 const sellTotal = sellEach * stillOwned.quantity;
                 const raritySymbol = RARITY_SYMBOLS[item.rarity] ?? "○";
+
                 const detailPayload = ui()
                   .color(config.colors.default)
                   .title(`${item.emoji} ${item.name}`)
@@ -361,6 +376,7 @@ export default {
                     `**Rarity:** ${raritySymbol} ${capitalise(item.rarity)}\n**Owned:** ×${stillOwned.quantity}\n**Sell Value:** ${sellEach.toLocaleString()} ${config.emojis.coin} each (${sellTotal.toLocaleString()} total)`,
                   )
                   .build();
+
                 const sellRow =
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
                     new ButtonBuilder()
@@ -376,25 +392,33 @@ export default {
                       .setLabel("◄ Back")
                       .setStyle(ButtonStyle.Secondary),
                   );
-                await message.edit({
+
+                nextPayload = {
                   components: [...detailPayload.components, sellRow],
-                } as any);
+                };
               }
-            } else {
+            }
+            else {
               selectedItemId = null;
-              await message.edit(
-                buildInventoryContainer(
-                  freshInv,
-                  freshUsed,
-                  capacity,
-                  profile,
-                  nextTier,
-                  tierName,
-                  tierEmoji,
-                  ctx,
-                ) as any,
+              nextPayload = buildInventoryContainer(
+                freshInv,
+                freshUsed,
+                capacity,
+                profile,
+                nextTier,
+                tierName,
+                tierEmoji,
+                ctx,
               );
             }
+
+            await interaction.update(nextPayload as any);
+
+            await interaction.followUp({
+              flags: MessageFlags.Ephemeral,
+              content: `${config.emojis.tick} Sold **${qty}×** item for **${result.coinsGained!.toLocaleString()}** ${config.emojis.coin}!`,
+            });
+
             return;
           }
         }
