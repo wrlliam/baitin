@@ -5,7 +5,7 @@ import { addCoins, subtractCoins } from "@/modules/fishing/economy";
 import { checkCooldown, setCooldown } from "@/modules/fishing/economy_games";
 import { ApplicationCommandType, MessageFlags } from "discord.js";
 
-const COOLDOWN_SECS = 60 * 60 * 4; // 4 hours
+const COOLDOWN_SECS = 60 * 60 * 6; // 4 hours
 const FINE = 150;
 const BASE_PAY = 200;
 
