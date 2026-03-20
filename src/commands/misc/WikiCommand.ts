@@ -1,5 +1,5 @@
 
-import config, { RARITY_EMOJIS as RARITY_EMOJI } from "@/config";
+import config from "@/config";
 import { ui, btn, ButtonStyle } from "@/ui";
 import { Command } from "@/core/typings";
 import { redis } from "@/db/redis";
@@ -25,6 +25,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } from "discord.js";
+import { RARITY_EMOJIS as RARITY_EMOJI } from "@/utils";
 
 // ─── Wiki Categories ─────────────────────────────────────────────────────────
 

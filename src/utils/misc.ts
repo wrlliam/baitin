@@ -1,3 +1,4 @@
+import { ItemRarity } from "@/data/types";
 import { app } from "..";
 
 import { Guild, GuildMember } from "discord.js";
@@ -131,3 +132,12 @@ export function limitSentence(str: string, length: number = 25) {
 export function capitalise(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export const RARITY_EMOJIS: Record<ItemRarity, string> = {
+  common: "<:common:1484338902876815391>",
+  uncommon: "<:uncommon:1484338906764935268>",
+  rare: "<:rare:1484338901534507280>",
+  epic: "<:epic:1484338187844194405>",
+  legendary: "<:legendary:1484338904915120171>",
+  mythic: "<:mythic:1484338908979396789>",
+};

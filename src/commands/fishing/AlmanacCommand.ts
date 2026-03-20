@@ -16,6 +16,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } from "discord.js";
+import { RARITY_EMOJIS } from "@/utils";
 
 const RARITY_ORDER: ItemRarity[] = [
   "common",
@@ -33,15 +34,6 @@ const RARITY_LABELS: Record<ItemRarity, string> = {
   epic: "Epic",
   legendary: "Legendary",
   mythic: "Mythic",
-};
-
-const RARITY_EMOJIS: Record<ItemRarity, string> = {
-  common: "<:common:1484338902876815391>",
-  uncommon: "<:uncommon:1484338906764935268>",
-  rare: "<:rare:1484338901534507280>",
-  epic: "<:epic:1484338187844194405>",
-  legendary: "<:legendary:1484338904915120171>",
-  mythic: "<:mythic:1484338908979396789>",
 };
 
 const PAGE_SIZE = 10;
