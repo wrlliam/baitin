@@ -3,6 +3,7 @@ import { fishingProfile } from "@/db/schema";
 import type { FishingProfileSelect } from "@/db/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { createId } from "@/utils/misc";
+import config from "@/config";
 
 export async function getOrCreateProfile(userId: string) {
   const existing = await db
@@ -93,8 +94,7 @@ export async function addXp(
   }
 
   const newXp = xp + amount;
-  const xpPerLevel = 100;
-  const newLevel = Math.floor(newXp / xpPerLevel) + 1;
+  const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
   const levelUp = newLevel > level;
 
   const updates: Record<string, unknown> = {

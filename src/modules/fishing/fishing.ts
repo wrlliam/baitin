@@ -19,7 +19,9 @@ import type { CatchResult, Fish, JunkItem } from "@/data/types";
 
 const COOLDOWN_SECONDS = 15;
 
-export async function canFish(userId: string): Promise<{ ok: boolean; remaining: number }> {
+export async function canFish(
+  userId: string,
+): Promise<{ ok: boolean; remaining: number }> {
   const key = `fish:cd:${userId}`;
   const lastFish = await redis.get(key);
 
@@ -36,7 +38,9 @@ export async function doFish(userId: string): Promise<CatchResult> {
   // ── Fetch profile ONCE, pass it everywhere ──
   const profile = await getOrCreateProfile(userId);
   const rod = rodItems.get(profile.equippedRodId ?? "splintered_twig");
-  const bait = profile.equippedBaitId ? baitItems.get(profile.equippedBaitId) : null;
+  const bait = profile.equippedBaitId
+    ? baitItems.get(profile.equippedBaitId)
+    : null;
 
   // ── Parallelize independent async calls: petBuffs + event ──
   const [petBuffs, event] = await Promise.all([
@@ -82,7 +86,10 @@ export async function doFish(userId: string): Promise<CatchResult> {
   // Cooldown base seconds (pets reduce it)
   let cdSeconds = COOLDOWN_SECONDS;
   if (petBuffs.cooldown_reduction) {
-    cdSeconds = Math.max(5, Math.floor(cdSeconds * (1 - petBuffs.cooldown_reduction)));
+    cdSeconds = Math.max(
+      5,
+      Math.floor(cdSeconds * (1 - petBuffs.cooldown_reduction)),
+    );
   }
 
   // Apply active buffs (potions)
@@ -153,7 +160,8 @@ export async function doFish(userId: string): Promise<CatchResult> {
   const baseXp = isJunk ? 1 : (item as Fish).xp;
 
   // Level coin bonus: +1.5% per level above 1
-  const levelCoinBonus = 1 + (profile.level - 1) * config.fishing.levelCoinBonusPercent;
+  const levelCoinBonus =
+    1 + (profile.level - 1) * config.fishing.levelCoinBonusPercent;
 
   // Streak logic
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -187,13 +195,14 @@ export async function doFish(userId: string): Promise<CatchResult> {
     xpMult *= 1 + bonusMult;
   }
 
-  const finalCoins = Math.floor(baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus);
+  const finalCoins = Math.floor(
+    baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus,
+  );
   const finalXp = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)));
 
   // ── Batch the final writes: combine addXp fields + streak + totalCatches into one UPDATE ──
   const newXp = profile.xp + finalXp;
-  const xpPerLevel = 100;
-  const newLevel = Math.floor(newXp / xpPerLevel) + 1;
+  const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
   const levelUp = newLevel > profile.level;
 
   profileUpdates.xp = newXp;
@@ -213,7 +222,11 @@ export async function doFish(userId: string): Promise<CatchResult> {
   const hutDrop = Math.random() < 0.001;
 
   // ── Pipeline Redis cooldown SET + EXPIRE using SETEX ──
-  await redis.send("SETEX", [`fish:cd:${userId}`, cdSeconds.toString(), Date.now().toString()]);
+  await redis.send("SETEX", [
+    `fish:cd:${userId}`,
+    cdSeconds.toString(),
+    Date.now().toString(),
+  ]);
 
   // ── Log catch + count junk in parallel ──
   const logId = createId();
@@ -227,7 +240,9 @@ export async function doFish(userId: string): Promise<CatchResult> {
     db
       .select({ junkCount: sql<number>`cast(count(*) as int)` })
       .from(fishingLog)
-      .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk"))),
+      .where(
+        and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk")),
+      ),
   ]);
 
   // The junk count query runs against the state before our insert commits,
@@ -271,7 +286,10 @@ function weightedRandom<T extends { weight: number }>(items: T[]): T {
   return items[items.length - 1];
 }
 
-function weightedRandomWithRarity<T extends { weight: number }>(items: T[], rarityMult: number): T {
+function weightedRandomWithRarity<T extends { weight: number }>(
+  items: T[],
+  rarityMult: number,
+): T {
   // Higher rarity mult increases weight of rare items (lower base weight)
   const adjustedItems = items.map((item) => {
     const inverseWeight = 1 / Math.max(1, item.weight);

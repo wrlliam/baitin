@@ -73,8 +73,7 @@ export default {
     // Add XP without incrementing totalCatches
     const profile = await getOrCreateProfile(ctx.user.id);
     const newXp = profile.xp + xpGained;
-    const xpPerLevel = 100;
-    const newLevel = Math.floor(newXp / xpPerLevel) + 1;
+    const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
 
     await db
       .update(fishingProfile)

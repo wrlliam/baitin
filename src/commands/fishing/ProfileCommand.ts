@@ -58,9 +58,8 @@ function buildTabRow(active: ProfileTab): ActionRowBuilder<ButtonBuilder> {
 
 async function buildOverview(target: User) {
   const profile = await getOrCreateProfile(target.id);
-  const xpPerLevel = 100;
-  const xpIntoLevel = profile.xp % xpPerLevel;
-  const bar = xpBar(xpIntoLevel, xpPerLevel);
+  const xpIntoLevel = profile.xp % config.xpPerLevel;
+  const bar = xpBar(xpIntoLevel, config.xpPerLevel);
   const used = await getItemCount(target.id);
   const capacity = await getSackCapacity(target.id);
   const sackTier = sackTiers.find((t) => t.level === profile.sackLevel);
@@ -83,7 +82,7 @@ async function buildOverview(target: User) {
       ui.thumb(target.displayAvatarURL({ extension: "png", size: 128 })),
     )
     .gap()
-    .text(`\`[${bar}]\` ${xpIntoLevel}/${xpPerLevel} XP to next level`)
+    .text(`\`[${bar}]\` ${xpIntoLevel}/${config.xpPerLevel} XP to next level`)
     .divider()
     .text(
       `${config.emojis.coin} **Wallet** — ${profile.coins.toLocaleString()} coins\n` +
