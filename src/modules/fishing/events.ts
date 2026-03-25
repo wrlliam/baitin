@@ -1,16 +1,18 @@
 import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { gameEvents, events as eventsList } from "@/data";
-import { fishingProfile, guildSettings } from "@/db/schema";
+import { fishingProfile, guildSettings, playerUpgrades } from "@/db/schema";
 import type { GameEvent } from "@/data/types";
 import type { Client } from "discord.js";
 import { ui } from "@/ui";
 import config from "@/config";
+import { eq, and, gte } from "drizzle-orm";
+import { subtractCoins } from "./economy";
 
 const ACTIVE_EVENT_KEY = "fish:event:active";
 const NEXT_EVENT_KEY = "fish:event:next";
-const MIN_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
-const MAX_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const MIN_INTERVAL_MS = 20 * 60 * 60 * 1000; // 20 hours
+const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function getActiveEvent(): Promise<GameEvent | null> {
   const data = await redis.get(ACTIVE_EVENT_KEY);
@@ -34,6 +36,8 @@ const EFFECT_EMOJIS: Record<string, string> = {
   catch_rate: "🎣",
   rarity_boost: "✨",
   coin_multiplier: "💰",
+  cooldown_reduction: "⚡",
+  junk_reduction: "🧹",
 };
 
 const EFFECT_LABELS: Record<string, string> = {
@@ -41,6 +45,8 @@ const EFFECT_LABELS: Record<string, string> = {
   catch_rate: "Catch Rate",
   rarity_boost: "Rarity Boost",
   coin_multiplier: "Coin Multiplier",
+  cooldown_reduction: "Cooldown Reduction",
+  junk_reduction: "Junk Reduction",
 };
 
 export async function broadcastEventAnnouncement(
@@ -99,11 +105,42 @@ export async function broadcastEventAnnouncement(
   }
 }
 
+/** Auto-join: deduct entry fee for all users with auto_join_tournament upgrade */
+async function autoJoinEventUsers(event: GameEvent): Promise<void> {
+  if (!event.entryFee || event.entryFee <= 0) return;
+
+  // Find all users with auto-join enabled who have enough coins
+  const eligible = await db
+    .select({ userId: playerUpgrades.userId })
+    .from(playerUpgrades)
+    .innerJoin(fishingProfile, eq(playerUpgrades.userId, fishingProfile.userId))
+    .where(
+      and(
+        eq(playerUpgrades.autoJoinTournament, true),
+        gte(fishingProfile.coins, event.entryFee),
+      ),
+    );
+
+  for (const { userId } of eligible) {
+    const joinedKey = `event:joined:${event.id}:${userId}`;
+    const alreadyJoined = await redis.get(joinedKey);
+    if (alreadyJoined) continue;
+
+    const paid = await subtractCoins(userId, event.entryFee!);
+    if (paid) {
+      const ttl = Math.floor(event.duration / 1000);
+      await redis.set(joinedKey, "1");
+      await redis.send("EXPIRE", [joinedKey, ttl.toString()]);
+    }
+  }
+}
+
 export async function triggerEvent(eventId: string): Promise<GameEvent | null> {
   const event = gameEvents.get(eventId);
   if (!event) return null;
 
   await activateEvent(eventId);
+  void autoJoinEventUsers(event);
   return event;
 }
 
@@ -144,6 +181,7 @@ export function startEventScheduler(client?: Client) {
       // Time to trigger!
       const randomEvent = eventsList[Math.floor(Math.random() * eventsList.length)];
       await activateEvent(randomEvent.id);
+      void autoJoinEventUsers(randomEvent);
       if (schedulerClient) {
         await broadcastEventAnnouncement(randomEvent, schedulerClient);
       }
@@ -180,8 +218,9 @@ export async function checkScheduledEvents(client?: Client): Promise<void> {
   if (utcHour === 7 && utcMinute < 5) {
     const event = gameEvents.get("morning_rush");
     await activateEvent("morning_rush");
-    if (client && event) {
-      await broadcastEventAnnouncement(event, client);
+    if (event) {
+      void autoJoinEventUsers(event);
+      if (client) await broadcastEventAnnouncement(event, client);
     }
   }
 }

@@ -97,7 +97,9 @@ export type EventEffectType =
   | "xp_multiplier"
   | "catch_rate"
   | "rarity_boost"
-  | "coin_multiplier";
+  | "coin_multiplier"
+  | "cooldown_reduction"
+  | "junk_reduction";
 
 export interface EventEffect {
   type: EventEffectType;
@@ -127,6 +129,11 @@ export interface CatchResult {
   streakDay?: number;
   streakBonus?: boolean;
   newAchievements?: import("@/data/achievements").AchievementDef[];
+  baitRemaining?: number | null;
+  baitRanOut?: boolean;
+  autoSold?: boolean;
+  autoSoldCoins?: number;
+  fotd?: boolean;
 }
 
 export interface BuffEffect {

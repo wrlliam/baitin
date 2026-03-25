@@ -140,7 +140,7 @@ export default {
     member: "👤",
   },
   fishing: {
-    sellPriceMultiplier: 0.6,
+    sellPriceMultiplier: 0.5,
     maxAuctionListings: 5,
     castAnimationDelay: 250, // ms
     levelCoinBonusPercent: 0.015, // +1.5%/level

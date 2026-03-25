@@ -37,7 +37,6 @@ export default {
         .setCustomId("welcome_get_started"),
       new ButtonBuilder()
         .setLabel("Support Server")
-        .setEmoji(config.emojis.discord)
         .setStyle(ButtonStyle.Link)
         .setURL(config.support)
         .setEmoji("🛟"),

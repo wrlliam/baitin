@@ -1,7 +1,8 @@
 import { db } from "@/db";
-import { achievement, fishingProfile } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { achievementMap, type AchievementDef } from "@/data/achievements";
+import { achievement, fishingProfile, fishingLog } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { achievementMap, type AchievementDef, type ProgressType } from "@/data/achievements";
+import { fish as fishData } from "@/data/fish";
 import { addCoins, addXp, getOrCreateProfile } from "./economy";
 import { createId } from "@/utils/misc";
 
@@ -95,6 +96,21 @@ export async function checkCatchAchievements(
     }
   }
 
+  // Collection milestones (only check on fish catches to avoid unnecessary queries)
+  if (itemType === "fish") {
+    const [{ uniqueCount }] = await db
+      .select({ uniqueCount: sql<number>`cast(count(distinct ${fishingLog.itemId}) as int)` })
+      .from(fishingLog)
+      .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "fish")));
+
+    const totalSpecies = fishData.length;
+    const pct = uniqueCount / totalSpecies;
+    if (pct >= 0.25) await tryUnlock("collector_25");
+    if (pct >= 0.50) await tryUnlock("collector_50");
+    if (pct >= 0.75) await tryUnlock("collector_75");
+    if (pct >= 1.00) await tryUnlock("collector_100");
+  }
+
   // Junk
   if (junkTotal !== undefined) {
     if (junkTotal >= 50) await tryUnlock("junk_collector");
@@ -151,6 +167,40 @@ export async function checkGearAchievements(
   if (opts.hatchedPet) await tryUnlock("first_pet");
 
   return unlocked;
+}
+
+/**
+ * Get current progress values for all progress-based achievement types.
+ * Returns a map from ProgressType to the current count.
+ */
+export async function getAchievementProgress(
+  userId: string,
+): Promise<Record<ProgressType, number>> {
+  const profile = await getOrCreateProfile(userId);
+
+  const [junkResult, uniqueResult] = await Promise.all([
+    db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(fishingLog)
+      .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "junk"))),
+    db
+      .select({ count: sql<number>`cast(count(distinct ${fishingLog.itemId}) as int)` })
+      .from(fishingLog)
+      .where(and(eq(fishingLog.userId, userId), eq(fishingLog.itemType, "fish"))),
+  ]);
+
+  const totalSpecies = fishData.length;
+  const uniqueCount = uniqueResult[0]?.count ?? 0;
+  const collectionPct = totalSpecies > 0 ? Math.floor((uniqueCount / totalSpecies) * 100) : 0;
+
+  return {
+    catches: profile.totalCatches,
+    junk: junkResult[0]?.count ?? 0,
+    streak: profile.currentStreak ?? 0,
+    collection: collectionPct,
+    coins: profile.coins,
+    steals: 0, // steal count not tracked in profile; will show 0 for display
+  };
 }
 
 export async function checkStealAchievements(

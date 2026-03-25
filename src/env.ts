@@ -11,6 +11,10 @@ export const env = createEnv({
 
     GUILD_ID: z.string(),
     INVITE_URL: z.string().optional(),
+    SUGGESTION_CHANNEL_ID: z.string().optional(),
+    REPORT_CHANNEL_ID: z.string().optional(),
+    BOT_API_SECRET: z.string().optional(),
+    BATTLEPASS_SKU_ID: z.string().optional(),
     REDIS_URL: z.string(),
     TOKEN: z.string(),
   },
@@ -24,6 +28,10 @@ export const env = createEnv({
     DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
     GUILD_ID: process.env.GUILD_ID,
     INVITE_URL: process.env.INVITE_URL,
+    SUGGESTION_CHANNEL_ID: process.env.SUGGESTION_CHANNEL_ID,
+    REPORT_CHANNEL_ID: process.env.REPORT_CHANNEL_ID,
+    BOT_API_SECRET: process.env.BOT_API_SECRET,
+    BATTLEPASS_SKU_ID: process.env.BATTLEPASS_SKU_ID,
     TOKEN: process.env.TOKEN,
   },
 });

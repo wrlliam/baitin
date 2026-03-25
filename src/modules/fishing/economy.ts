@@ -4,6 +4,7 @@ import type { FishingProfileSelect } from "@/db/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { createId } from "@/utils/misc";
 import config from "@/config";
+import { getLevel } from "@/utils/leveling";
 
 export async function getOrCreateProfile(userId: string) {
   const existing = await db
@@ -94,7 +95,7 @@ export async function addXp(
   }
 
   const newXp = xp + amount;
-  const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
+  const newLevel = getLevel(newXp);
   const levelUp = newLevel > level;
 
   const updates: Record<string, unknown> = {
@@ -112,4 +113,21 @@ export async function addXp(
     .where(eq(fishingProfile.userId, userId));
 
   return { levelUp, newLevel };
+}
+
+export async function addGems(userId: string, amount: number): Promise<void> {
+  await db
+    .update(fishingProfile)
+    .set({ gems: sql`${fishingProfile.gems} + ${amount}` })
+    .where(eq(fishingProfile.userId, userId));
+}
+
+export async function subtractGems(userId: string, amount: number): Promise<boolean> {
+  const result = await db
+    .update(fishingProfile)
+    .set({ gems: sql`${fishingProfile.gems} - ${amount}` })
+    .where(and(eq(fishingProfile.userId, userId), gte(fishingProfile.gems, amount)))
+    .returning({ gems: fishingProfile.gems });
+
+  return result.length > 0;
 }

@@ -3,8 +3,13 @@ import { ui } from "@/ui";
 import { Command } from "@/core/typings";
 import { tip } from "@/data/tip";
 import { canFish, doFish } from "@/modules/fishing/fishing";
+import { getCurrentWeather } from "@/modules/fishing/weather";
+import { locationMap } from "@/data/locations";
+import { getCurrentSeason } from "@/modules/fishing/seasons";
+import { getOrCreateProfile } from "@/modules/fishing/economy";
 import { sellItem } from "@/modules/fishing/inventory";
 import { incrementQuestProgress } from "@/modules/fishing/quests";
+import { getOrCreateUpgrades } from "@/modules/fishing/upgrades";
 import { capitalise } from "@/utils";
 import { db } from "@/db";
 import { fishingLog } from "@/db/schema";
@@ -28,17 +33,21 @@ export default {
   run: async ({ args, client, ctx }) => {
     const canFishResult = await canFish(ctx.user.id);
     if (!canFishResult.ok) {
-      const remainingMs = canFishResult.remaining;
-      const remainingSecs = Math.ceil(remainingMs / 1000);
       return ctx.reply({
-        content: `You can't cast that quickly! Please wait **${remainingSecs}s** before trying again.`,
+        content: `You can't cast that quickly! Try again <t:${canFishResult.expiresAt}:R>.`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
     await ctx.deferReply();
 
-    const fishPromise = doFish(ctx.user.id);
+    // Check multi-cast tier
+    const upgData = await getOrCreateUpgrades(ctx.user.id);
+    const castCount = Math.min(upgData.multiCastTier + 1, 6); // tier 0=1x, 1=2x, ..., 5=6x
+
+    const fishPromise = castCount > 1
+      ? Promise.all(Array.from({ length: castCount }, () => doFish(ctx.user.id)))
+      : doFish(ctx.user.id).then((r) => [r]);
 
     await new Promise((r) => setTimeout(r, config.fishing.castAnimationDelay));
     const stage2Message =
@@ -48,67 +57,73 @@ export default {
 
     await ctx.editReply({ content: stage2Message });
 
-    const fishedResult = await fishPromise;
+    const fishResults = await fishPromise;
+    const fishedResult = fishResults[0];
 
-    // Quest progress (fire-and-forget)
-    void incrementQuestProgress(ctx.user.id, "cast");
-    if (fishedResult.item.category === "fish") {
-      void incrementQuestProgress(ctx.user.id, "catch_fish");
-      void incrementQuestProgress(
-        ctx.user.id,
-        "catch_rarity",
-        fishedResult.item.rarity,
-      );
-    } else if (fishedResult.item.category === "junk") {
-      void incrementQuestProgress(ctx.user.id, "catch_junk");
+    // Quest progress (fire-and-forget) — for all catches in multi-cast
+    for (const result of fishResults) {
+      void incrementQuestProgress(ctx.user.id, "cast");
+      if (result.item.category === "fish") {
+        void incrementQuestProgress(ctx.user.id, "catch_fish");
+        void incrementQuestProgress(ctx.user.id, "catch_rarity", result.item.rarity);
+      } else if (result.item.category === "junk") {
+        void incrementQuestProgress(ctx.user.id, "catch_junk");
+      }
     }
 
     await new Promise((r) => setTimeout(r, config.fishing.castAnimationDelay));
 
     const rodName = fishedResult.rodName;
+    const isMultiCast = fishResults.length > 1;
 
-    let extraBody = "";
-    if (fishedResult.rodBroke) {
-      extraBody =
-        "\n\n${config.emojis.warning} **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.";
-    }
-    if (fishedResult.streakBonus && fishedResult.streakDay) {
-      const bonusPct = Math.round(Math.min(fishedResult.streakDay - 1, 10) * 5);
-      extraBody += `\n\n${config.emojis.fire} **${fishedResult.streakDay}-day streak!** +${bonusPct}% XP & coins bonus.`;
-    }
-    if (
-      fishedResult.newAchievements &&
-      fishedResult.newAchievements.length > 0
-    ) {
-      const achLines = fishedResult.newAchievements
-        .map(
-          (a) =>
-            `${a.emoji} **${a.name}** — ${a.description} (+${a.coinReward}${config.emojis.coin})`,
-        )
+    const castResult = ui().color(config.colors.default);
+
+    if (isMultiCast) {
+      // ── Multi-cast summary ──
+      const totalXp = fishResults.reduce((s, r) => s + r.xpGained, 0);
+      const totalCoins = fishResults.reduce((s, r) => s + r.coinsGained, 0);
+      const autoSoldTotal = fishResults.reduce((s, r) => s + (r.autoSoldCoins ?? 0), 0);
+      const catchLines = fishResults
+        .map((r) => `${r.item.emoji} **${r.item.name}** — ${capitalise(r.item.rarity)}${r.fotd ? " ⭐" : ""}${r.autoSold ? " *(auto-sold)*" : ""}`)
         .join("\n");
-      extraBody += `\n\n${config.emojis.medal} **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**\n${achLines}`;
+
+      castResult
+        .title(`🎣 Multi-Cast ×${fishResults.length}`)
+        .body(catchLines)
+        .divider()
+        .text(`${config.emojis.star} **Total XP:** +${totalXp}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`)
+        .text(`${config.emojis.coin} **Total Coins:** +${totalCoins.toLocaleString()}${autoSoldTotal > 0 ? ` (incl. ${autoSoldTotal.toLocaleString()} auto-sold)` : ""}`)
+        .divider();
+    } else {
+      // ── Single catch display ──
+      castResult
+        .title(`${fishedResult.item.emoji} ${fishedResult.item.name}${fishedResult.fotd ? " ⭐ Fish of the Day!" : ""}`)
+        .body(
+          `*${fishedResult.item.description}*\n\nYou reeled in a ${fishedResult.item.name} (${config.emojis.coin} ${fishedResult.item.price}${fishedResult.fotd ? " — **2× coins!**" : ""})`,
+        )
+        .divider()
+        .text(
+          `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`,
+        )
+        .text(
+          `${config.emojis.star} **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`,
+        )
+        .divider();
+
+      // Auto-sell notice
+      if (fishedResult.autoSold) {
+        castResult
+          .text(`💰 **Auto-sold** for **${fishedResult.autoSoldCoins?.toLocaleString()}** ${config.emojis.coin}`)
+          .divider();
+      }
     }
 
-    const castResult = ui()
-      .color(config.colors.default)
-      .title(`${fishedResult.item.emoji} ${fishedResult.item.name}`)
-      .body(
-        `*${fishedResult.item.description}*\n\n
-You reeled in a ${fishedResult.item.name} (${config.emojis.coin} ${fishedResult.item.price})`,
-      )
-      .divider()
-      .text(
-        `**Rarity:** ${capitalise(fishedResult.item.rarity)}\n**Rod:** ${rodName}${fishedResult.rodBroke ? " ⚠️ BROKEN" : ""}`,
-      )
-      .text(
-        `${config.emojis.star} **XP:** +${fishedResult.xpGained}${fishedResult.levelUp ? ` → **Level ${fishedResult.newLevel}!**` : ""}`,
-      )
-      .divider();
-
-    if (fishedResult.rodBroke) {
+    // Shared alerts (apply to first result for multi-cast)
+    const anyRodBroke = fishResults.some((r) => r.rodBroke);
+    if (anyRodBroke) {
       castResult
         .text(
-          "${config.emojis.warning} **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.",
+          `${config.emojis.warning} **Rod Broke!** Your rod fell apart! Reverted to **Splintered Twig**. Buy a repair kit or equip a new rod.`,
         )
         .divider();
     }
@@ -122,26 +137,50 @@ You reeled in a ${fishedResult.item.name} (${config.emojis.coin} ${fishedResult.
         .divider();
     }
 
-    if (
-      fishedResult.newAchievements &&
-      fishedResult.newAchievements.length > 0
-    ) {
-      const achLines = fishedResult.newAchievements
+    // Collect all achievements from all casts
+    const allAchievements = fishResults.flatMap((r) => r.newAchievements ?? []);
+    if (allAchievements.length > 0) {
+      const achLines = allAchievements
         .map((a) => `${a.emoji} **${a.name}**\n-# ${a.description}`)
         .join("\n");
       castResult
         .text(
-          `${config.emojis.medal} **Achievement${fishedResult.newAchievements.length > 1 ? "s" : ""} Unlocked!**`,
+          `${config.emojis.medal} **Achievement${allAchievements.length > 1 ? "s" : ""} Unlocked!**`,
         )
         .text(achLines)
         .divider();
     }
 
-    castResult.footer(tip());
+    // Bait alerts (use last result for most accurate remaining count)
+    const lastResult = fishResults[fishResults.length - 1];
+    if (lastResult.baitRanOut) {
+      castResult
+        .text(
+          `${config.emojis.warning} **Out of bait!** You've used your last one. Buy more from \`/shop\`.`,
+        )
+        .divider();
+    } else if (
+      lastResult.baitRemaining !== null &&
+      lastResult.baitRemaining !== undefined &&
+      lastResult.baitRemaining > 0 &&
+      lastResult.baitRemaining <= 5
+    ) {
+      castResult
+        .text(
+          `${config.emojis.warning} **Low bait!** Only **${lastResult.baitRemaining}** left.`,
+        )
+        .divider();
+    }
 
-    // Build action buttons — Sell for anything with a price, Species for fish only
-    const shouldShowSell = fishedResult.item.price > 0;
-    const shouldShowSpecies = fishedResult.item.category === "fish";
+    const weather = getCurrentWeather();
+    const castProfile = await getOrCreateProfile(ctx.user.id);
+    const loc = locationMap.get(castProfile.equippedLocation ?? "pond");
+    const season = getCurrentSeason();
+    castResult.footer(`${loc?.emoji ?? "🏞️"} ${loc?.name ?? "Pond"} • ${weather.emoji} ${weather.name} • ${season.emoji} ${season.name} • ${tip()}`);
+
+    // Build action buttons — Sell for single catch only, Species for fish only
+    const shouldShowSell = !isMultiCast && fishedResult.item.price > 0 && !fishedResult.autoSold;
+    const shouldShowSpecies = !isMultiCast && fishedResult.item.category === "fish";
 
     const makeButtons = (disabled: boolean): ButtonBuilder[] => {
       const btns: ButtonBuilder[] = [];

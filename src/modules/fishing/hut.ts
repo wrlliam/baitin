@@ -34,7 +34,7 @@ export async function createHut(userId: string): Promise<{ success: false; error
   return { success: true, data };
 }
 
-export async function collectHut(userId: string): Promise<{ items: { id: string; name: string; emoji: string; quantity: number }[]; total: number } | null> {
+export async function collectHut(userId: string): Promise<{ items: { id: string; name: string; emoji: string; quantity: number }[]; total: number; autoSoldCoins: number; autoSoldCount: number } | null> {
   const hutData = await getHut(userId);
   if (!hutData) return null;
 
@@ -53,7 +53,7 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
   let catches = Math.floor(elapsedMinutes / minutesPerCatch);
   catches = Math.min(catches, 24, maxItems);
 
-  if (catches <= 0) return { items: [], total: 0 };
+  if (catches <= 0) return { items: [], total: 0, autoSoldCoins: 0, autoSoldCount: 0 };
 
   // Roll simplified catches
   const caughtItems: Map<string, { id: string; name: string; emoji: string; quantity: number }> = new Map();
@@ -99,6 +99,44 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
     await db.update(hut).set({ rodDurability: currentRodDurability }).where(eq(hut.id, hutData.id));
   }
 
+  // Check existing inventory count for auto-collect overflow
+  let autoSoldCoins = 0;
+  let autoSoldCount = 0;
+
+  if (hutData.autoCollect) {
+    const existingInv = await db.select().from(hutInventory).where(eq(hutInventory.hutId, hutData.id));
+    const existingTotal = existingInv.reduce((s, r) => s + r.quantity, 0);
+    const newTotal = Array.from(caughtItems.values()).reduce((s, i) => s + i.quantity, 0);
+
+    if (existingTotal + newTotal > maxItems) {
+      const overflow = existingTotal + newTotal - maxItems;
+      // Auto-sell the lowest-value catches first
+      const sorted = Array.from(caughtItems.entries()).sort((a, b) => {
+        const aItem = allItems.get(a[0]);
+        const bItem = allItems.get(b[0]);
+        return (aItem?.price ?? 0) - (bItem?.price ?? 0);
+      });
+
+      let toSell = overflow;
+      for (const [itemId, data] of sorted) {
+        if (toSell <= 0) break;
+        const sellQty = Math.min(data.quantity, toSell);
+        const item = allItems.get(itemId);
+        if (item) {
+          autoSoldCoins += Math.floor(item.price * config.fishing.sellPriceMultiplier * sellQty);
+        }
+        autoSoldCount += sellQty;
+        data.quantity -= sellQty;
+        toSell -= sellQty;
+        if (data.quantity <= 0) caughtItems.delete(itemId);
+      }
+
+      if (autoSoldCoins > 0) {
+        await addCoins(userId, autoSoldCoins);
+      }
+    }
+  }
+
   // Store in hut inventory — batch upsert with ON CONFLICT
   const upsertValues = Array.from(caughtItems, ([itemId, data]) => ({
     id: createId(),
@@ -106,7 +144,7 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
     itemId,
     itemType: fishData.find((f) => f.id === itemId) ? "fish" as const : "junk" as const,
     quantity: data.quantity,
-  }));
+  })).filter((v) => v.quantity > 0);
 
   if (upsertValues.length > 0) {
     await db
@@ -121,7 +159,7 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
   // Update last collected
   await db.update(hut).set({ lastCollectedAt: now }).where(eq(hut.id, hutData.id));
 
-  return { items: Array.from(caughtItems.values()), total: catches };
+  return { items: Array.from(caughtItems.values()), total: catches, autoSoldCoins, autoSoldCount };
 }
 
 export async function getHutInventory(userId: string) {

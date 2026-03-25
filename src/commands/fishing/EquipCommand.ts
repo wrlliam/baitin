@@ -157,7 +157,7 @@ export default {
 
       await db
         .update(fishingProfile)
-        .set({ equippedBaitId: itemId })
+        .set({ equippedBaitId: itemId, preferredBaitId: itemId })
         .where(eq(fishingProfile.userId, ctx.user.id));
 
       return ctx.editReply(

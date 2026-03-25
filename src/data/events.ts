@@ -293,4 +293,78 @@ export const events: GameEvent[] = [
     schedule: "random",
     duration: 30 * 60 * 1000,
   },
+
+  // ── COOLDOWN REDUCTION EVENTS ──────────────────────────────────────────────
+  {
+    id: "anglers_flow",
+    name: "Angler's Flow",
+    description: "The fish are striking fast. Cast again before the ripples fade.",
+    effects: [
+      { type: "cooldown_reduction", value: 0.5 },
+      { type: "xp_multiplier", value: 1.2 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+  {
+    id: "lightning_strike",
+    name: "Lightning Strike",
+    description: "A storm passes, electrifying the water. Fish dart wildly — every second counts.",
+    effects: [
+      { type: "cooldown_reduction", value: 0.4 },
+      { type: "rarity_boost", value: 0.8 },
+    ],
+    schedule: "random",
+    duration: 15 * 60 * 1000,
+  },
+  {
+    id: "current_surge",
+    name: "Current Surge",
+    description: "A powerful current sweeps through, flushing fish into casting range in rapid succession.",
+    effects: [
+      { type: "cooldown_reduction", value: 0.6 },
+      { type: "coin_multiplier", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 25 * 60 * 1000,
+    entryFee: 75,
+  },
+
+  // ── JUNK REDUCTION EVENTS ──────────────────────────────────────────────────
+  {
+    id: "crystal_waters",
+    name: "Crystal Waters",
+    description: "The water runs crystal clear. Every cast finds something worthwhile.",
+    effects: [
+      { type: "junk_reduction", value: 0.2 },
+      { type: "xp_multiplier", value: 1.3 },
+    ],
+    schedule: "random",
+    duration: 30 * 60 * 1000,
+  },
+  {
+    id: "cleanup_crew",
+    name: "Cleanup Crew",
+    description: "Divers cleared the debris. The waterway is pristine — only fish today.",
+    effects: [
+      { type: "junk_reduction", value: 0.1 },
+      { type: "rarity_boost", value: 1.2 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+  },
+
+  // ── MIXED NEW-TYPE EVENTS ──────────────────────────────────────────────────
+  {
+    id: "rapid_harvest",
+    name: "Rapid Harvest",
+    description: "A rare window of calm water and clean currents. Fast casts, clean catches.",
+    effects: [
+      { type: "cooldown_reduction", value: 0.6 },
+      { type: "junk_reduction", value: 0.3 },
+    ],
+    schedule: "random",
+    duration: 20 * 60 * 1000,
+    entryFee: 150,
+  },
 ];

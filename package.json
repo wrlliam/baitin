@@ -10,7 +10,8 @@
     "db:studio": "drizzle-kit studio",
     "generate:command": "bun run scripts/generate-command.ts",
     "generate:event": "bun run scripts/generate-event.ts",
-    "db:all": "bunx drizzle-kit generate && bunx drizzle-kit migrate && bunx drizzle-kit push"
+    "db:all": "bunx drizzle-kit generate && bunx drizzle-kit migrate && bunx drizzle-kit push",
+    "db:migrate-schema": "bun run scripts/migrate-to-bot-schema.ts"
   },
   "dependencies": {
     "@bogeychan/elysia-logger": "^0.1.10",

@@ -59,7 +59,7 @@ export default {
           .body(
             `You were caught ${crime} — but slipped through the net!\n\nYou pocketed **${coins.toLocaleString()}** ${config.emojis.coin} and nobody was the wiser.`,
           )
-          .footer("Cooldown: 2 hours • Baitin • /help")
+          .footer("Cooldown: 6 hours • Baitin • /help")
           .build() as any,
       );
     } else {
@@ -74,7 +74,7 @@ export default {
           .body(
             `You were caught ${crime} and the game warden nabbed you.\n\n${fineText}`,
           )
-          .footer("Cooldown: 2 hours • Baitin • /help")
+          .footer("Cooldown: 6 hours • Baitin • /help")
           .build() as any,
       );
     }

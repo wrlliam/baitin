@@ -12,8 +12,12 @@ import {
   cardEmoji,
 } from "@/modules/games/blackjack";
 import {
+  ActionRowBuilder,
   ApplicationCommandOptionType,
   ApplicationCommandType,
+  ButtonBuilder,
+  ButtonStyle as DjsButtonStyle,
+  ComponentType,
   MessageFlags,
 } from "discord.js";
 
@@ -153,27 +157,105 @@ async function highLowGame(ctx: any, amount: number) {
   );
 }
 
+// European roulette: 18 red, 18 black, 1 green (37 slots)
+const ROULETTE_SLOTS = 37;
+const ROULETTE_RED = 18;
+const ROULETTE_BLACK = 18;
+// Green = 1
+
 async function rouletteGame(ctx: any, amount: number) {
-  await ctx.deferReply({});
+  // Show color selection buttons (don't defer yet — we need the interaction for buttons)
+  const colorRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`roulette:red:${ctx.user.id}`)
+      .setLabel("Red (2×)")
+      .setStyle(DjsButtonStyle.Danger)
+      .setEmoji("🔴"),
+    new ButtonBuilder()
+      .setCustomId(`roulette:black:${ctx.user.id}`)
+      .setLabel("Black (2×)")
+      .setStyle(DjsButtonStyle.Secondary)
+      .setEmoji("⚫"),
+    new ButtonBuilder()
+      .setCustomId(`roulette:green:${ctx.user.id}`)
+      .setLabel("Green (14×)")
+      .setStyle(DjsButtonStyle.Success)
+      .setEmoji("🟢"),
+  );
 
-  const colors = ["🔴 Red", "⚫ Black", "🟢 Green", "🟠 Orange", "🟣 Purple", "🟡 Yellow", "🟦 Blue"];
-  const spinResult = colors[Math.floor(Math.random() * colors.length)];
-  const odds = [1, 1, 3, 1.5, 1.5, 1.5, 1.5];
-  const idx = colors.findIndex((c) => c === spinResult);
-  const multiplier = odds[idx];
+  const { resource: pickResource } = await ctx.reply({
+    ...ui()
+      .color(config.colors.default)
+      .title(`${config.emojis.roulette} Roulette — Pick a Color`)
+      .body(`Bet: **${amount.toLocaleString()}** ${config.emojis.coin}\n\nChoose a color to bet on.`)
+      .footer("🔴 Red or ⚫ Black = 2× payout · 🟢 Green = 14× payout")
+      .build({ rows: [colorRow] }),
+    withResponse: true,
+  } as any);
 
-  const won = Math.random() < (1 / 7) * 1.2; // Slightly favorable
-  if (won) await addCoins(ctx.user.id, Math.floor(amount * multiplier));
+  const reply = pickResource?.message ?? await ctx.fetchReply();
 
-  return ctx.editReply(
+  let collected: any;
+  try {
+    collected = await reply.awaitMessageComponent({
+      componentType: ComponentType.Button,
+      filter: (i: any) => i.user.id === ctx.user.id && i.customId.startsWith("roulette:"),
+      time: 30_000,
+    });
+  } catch {
+    // Timed out
+    await addCoins(ctx.user.id, amount); // Refund
+    try {
+      await reply.edit(
+        ui()
+          .color(config.colors.default)
+          .title(`${config.emojis.roulette} Roulette — Cancelled`)
+          .body("You didn't pick a color in time. Your bet was refunded.")
+          .build() as any,
+      );
+    } catch {}
+    return;
+  }
+
+  const choice = collected.customId.split(":")[1] as "red" | "black" | "green";
+
+  // Spin animation
+  await collected.update(
+    ui()
+      .color(config.colors.default)
+      .title(`${config.emojis.roulette} Roulette — Spinning...`)
+      .body("The wheel is spinning...")
+      .build() as any,
+  );
+
+  await new Promise((r) => setTimeout(r, 1500));
+
+  // Determine result
+  const roll = Math.floor(Math.random() * ROULETTE_SLOTS);
+  let resultColor: "red" | "black" | "green";
+  if (roll < ROULETTE_RED) resultColor = "red";
+  else if (roll < ROULETTE_RED + ROULETTE_BLACK) resultColor = "black";
+  else resultColor = "green";
+
+  const colorEmoji = { red: "🔴", black: "⚫", green: "🟢" };
+  const colorLabel = { red: "Red", black: "Black", green: "Green" };
+
+  const won = choice === resultColor;
+  const multiplier = resultColor === "green" && won ? 14 : won ? 2 : 0;
+  const payout = amount * multiplier;
+
+  if (won) await addCoins(ctx.user.id, payout);
+
+  await collected.editReply(
     ui()
       .color(won ? config.colors.success : config.colors.error)
       .title(`${config.emojis.roulette} Roulette`)
       .body(
-        `Wheel spins...\n**${spinResult}**\n\n` +
+        `The ball lands on... ${colorEmoji[resultColor]} **${colorLabel[resultColor]}**!\n` +
+        `You bet on: ${colorEmoji[choice]} **${colorLabel[choice]}**\n\n` +
         (won
-          ? `Lucky spin! You won **${Math.floor(amount * multiplier).toLocaleString()}** ${config.emojis.coin}!`
-          : `The wheel didn't favor you. You lost **${amount.toLocaleString()}** ${config.emojis.coin}.`),
+          ? `You won **${payout.toLocaleString()}** ${config.emojis.coin}! (${multiplier}× payout)`
+          : `You lost **${amount.toLocaleString()}** ${config.emojis.coin}.`),
       )
       .build() as any,
   );

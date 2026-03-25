@@ -10,6 +10,7 @@ import { app } from "..";
 import config from "../config";
 import { defaultEmbeds } from "../core/Embed";
 import { err, warn } from "../utils/logger";
+import { isUserRestricted } from "../modules/moderation";
 
 export default {
   name: "interactionCreate",
@@ -56,6 +57,24 @@ export default {
           flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
           components: payload.components,
         } as any);
+      }
+
+      // Skip restriction check for the dev user
+      if (interaction.user.id !== config.ids.dev) {
+        const restriction = await isUserRestricted(interaction.user.id);
+        if (restriction.restricted) {
+          const expiry = restriction.expiresAt
+            ? ` until <t:${Math.floor(restriction.expiresAt.getTime() / 1000)}:R>`
+            : "";
+          const msg =
+            restriction.type === "ban"
+              ? `You are banned from using this bot${restriction.reason ? `.\n**Reason:** ${restriction.reason}` : "."}`
+              : `You are timed out${expiry}${restriction.reason ? `.\n**Reason:** ${restriction.reason}` : "."}`;
+          return interaction.reply({
+            content: `${config.emojis.cross} ${msg}`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
       }
 
       if (
@@ -142,7 +161,8 @@ export default {
       }
 
       // Check if button has a user ID appended (format: {action}_{userId})
-      const userIdMatch = interaction.customId.match(/_(\d+)$/);
+      // Discord snowflake IDs are 17-20 digits — avoid matching short numeric suffixes
+      const userIdMatch = interaction.customId.match(/_(\d{17,20})$/);
       if (userIdMatch) {
         const buttonCreatorId = userIdMatch[1];
         if (interaction.user.id !== buttonCreatorId) {

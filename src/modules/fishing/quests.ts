@@ -11,6 +11,8 @@ import {
   type QuestAction,
   type QuestDef,
 } from "@/data/quests";
+import { getOrCreateProfile } from "./economy";
+import { getRepPerks } from "./reputation";
 
 const RARITY_RANK: Record<string, number> = {
   common: 0,
@@ -52,7 +54,14 @@ export async function getOrAssignQuests(
       ),
     );
 
-  if (existing.length >= QUESTS_PER_TYPE) return existing;
+  // Rep perk: +1 daily quest slot at 25+ rep
+  const profile = await getOrCreateProfile(userId);
+  const repPerks = getRepPerks(profile.reputation);
+  const maxSlots = type === "daily" && repPerks.extraQuestSlot
+    ? QUESTS_PER_TYPE + 1
+    : QUESTS_PER_TYPE;
+
+  if (existing.length >= maxSlots) return existing;
 
   // Clean up any expired quests of this type
   await db
@@ -66,7 +75,7 @@ export async function getOrAssignQuests(
 
   // Roll new quests
   const pool = type === "daily" ? dailyQuests : weeklyQuests;
-  const selected = pickRandom(pool, QUESTS_PER_TYPE);
+  const selected = pickRandom(pool, maxSlots);
   const expiresAt = new Date();
 
   if (type === "daily") {

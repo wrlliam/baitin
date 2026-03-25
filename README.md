@@ -67,9 +67,11 @@ Create a `.env` file with the following variables:
 ```env
 TOKEN=your_bot_token
 DISCORD_CLIENT_ID=your_client_id
-GUILD_ID=your_dev_guild_id
+DISCORD_CLIENT_SECRET=your_client_secret
+GUILD_ID=your_dev_guild_id        # dev/testing guild
 DATABASE_URL=postgresql://user:password@localhost:5432/baitin
 REDIS_URL=redis://localhost:6379
+API_PORT=3001
 ```
 
 Push the database schema and start the bot:
@@ -89,33 +91,48 @@ bun run dev
 | -------------- | ------------------------------------------------ |
 | `/cast`        | Cast your line and reel in a catch               |
 | `/sack`        | View and manage your inventory (upgrade capacity)|
-| `/sell`        | Sell fish and items from your inventory           |
+| `/sell`        | Sell fish and items from your inventory          |
+| `/release`     | Release fish back into the water                 |
 | `/shop`        | Browse and buy rods, bait, potions, and upgrades |
 | `/equip`       | Equip a rod or bait                              |
 | `/use`         | Use a consumable item (potion, etc.)             |
+| `/buffs`       | View your active potion buffs                    |
 | `/profile`     | View your fishing profile and stats              |
 | `/leaderboard` | Top players by various categories                |
 | `/almanac`     | Browse your lifetime fish discovery log          |
 | `/achievements`| View your achievement progress                   |
+| `/fishoff`     | Challenge another player to a fishing competition|
 | `/event`       | Check the currently active fishing event         |
 | `/tip`         | Get a random fishing tip                         |
 | `/settings`    | Configure personal bot settings                  |
 
 ### Economy
 
-| Command    | Description                            |
-| ---------- | -------------------------------------- |
-| `/daily`   | Claim your daily reward (streak bonus) |
-| `/weekly`  | Claim your weekly reward               |
-| `/monthly` | Claim your monthly reward              |
-| `/work`    | Earn income on a cooldown              |
-| `/steal`   | Attempt to steal coins from a player   |
-| `/crime`   | Commit a crime for a risky payout      |
-| `/beg`     | Beg for spare coins                    |
-| `/search`  | Search locations for hidden coins      |
-| `/flip`    | Coin flip gamble                       |
-| `/slots`   | Play the slot machine                  |
-| `/gamble`  | Gamble coins on various games          |
+| Command      | Description                            |
+| ------------ | -------------------------------------- |
+| `/balance`   | Check your coin balance                |
+| `/daily`     | Claim your daily reward (streak bonus) |
+| `/weekly`    | Claim your weekly reward               |
+| `/monthly`   | Claim your monthly reward              |
+| `/work`      | Earn income on a cooldown              |
+| `/steal`     | Attempt to steal coins from a player   |
+| `/crime`     | Commit a crime for a risky payout      |
+| `/heist`     | Organize a group heist for big payouts |
+| `/beg`       | Beg for spare coins                    |
+| `/search`    | Search locations for hidden coins      |
+| `/rep`       | Give reputation to another player      |
+| `/give`      | Give coins to another player           |
+| `/trade`     | Trade items with another player        |
+| `/drop`      | Drop a random reward for the server    |
+| `/giftbox`   | Open a gift box for random rewards     |
+| `/bounty`    | Place or claim a bounty on a player    |
+| `/duel`      | Challenge another player to a duel     |
+| `/lottery`   | Buy lottery tickets for a jackpot      |
+| `/quests`    | View and track your active quests      |
+| `/flip`      | Coin flip gamble                       |
+| `/slots`     | Play the slot machine                  |
+| `/gamble`    | Gamble coins on various games          |
+| `/blackjack` | Play blackjack                         |
 
 ### Market
 
@@ -143,6 +160,7 @@ bun run dev
 | Command            | Description                                |
 | ------------------ | ------------------------------------------ |
 | `/help`            | Show help for all or a specific command    |
+| `/wiki`            | Look up game items and mechanics           |
 | `/getting-started` | New player guide                           |
 | `/ping`            | Check bot latency                          |
 | `/avatar`          | View a user's avatar                       |
@@ -193,6 +211,8 @@ src/
 │   ├── hut.ts             # Hut upgrade definitions
 │   ├── achievements.ts    # Achievement definitions
 │   ├── events.ts          # Event definitions
+│   ├── quests.ts          # Quest definitions
+│   ├── levels.ts          # Level progression thresholds
 │   ├── junk.ts            # Junk item definitions
 │   ├── sack.ts            # Sack tier definitions
 │   └── types.ts           # Shared data types
@@ -251,7 +271,6 @@ src/
 | Script                     | Description                               |
 | -------------------------- | ----------------------------------------- |
 | `bun run dev`              | Start with hot reload                     |
-| `bun run start`            | Production start                          |
 | `bun run generate:command` | Interactive command scaffolder             |
 | `bun run generate:event`   | Interactive event scaffolder              |
 | `bun run db:generate`      | Generate Drizzle migration                |

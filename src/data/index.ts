@@ -7,6 +7,8 @@ import { events } from "./events";
 import { potions } from "./potions";
 import { sackTiers } from "./sack";
 import { hutSpeedUpgrades, hutLuckUpgrades, hutInventoryUpgrades } from "./hut";
+import { allExclusiveFish } from "./locations";
+import { seasonalFish } from "./seasonal-fish";
 import type { BaseItem, Fish, JunkItem, Bait, Rod, Pet, Egg, GameEvent, SackTier, HutUpgrade, Potion } from "./types";
 
 const fishMap = new Map<string, Fish>();
@@ -31,6 +33,8 @@ function buildMaps() {
   for (const e of eggs) { eggMap.set(e.id, e); allItemsMap.set(e.id, e); }
   for (const ev of events) { eventMap.set(ev.id, ev); }
   for (const po of potions) { potionMap.set(po.id, po); allItemsMap.set(po.id, po); }
+  for (const ef of allExclusiveFish) { fishMap.set(ef.id, ef); allItemsMap.set(ef.id, ef); }
+  for (const sf of seasonalFish) { fishMap.set(sf.id, sf); allItemsMap.set(sf.id, sf); }
 }
 
 buildMaps();

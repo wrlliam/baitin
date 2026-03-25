@@ -25,7 +25,7 @@ import {
 import { getInventory } from "@/modules/fishing/inventory";
 import { getUserPets } from "@/modules/fishing/pets";
 import { db } from "@/db";
-import { petInstance } from "@/db/schema";
+import { hut, petInstance } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   ActionRowBuilder,
@@ -40,42 +40,38 @@ import {
 
 // ─── Hut view helpers ─────────────────────────────────────────────────────────
 
-function buildHutActionRows(userId: string) {
-  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+/** Resolve pet instance → pet definition for display */
+async function resolveHutPet(petId: string | null) {
+  if (!petId) return null;
+  const [instance] = await db.select().from(petInstance).where(eq(petInstance.id, petId));
+  if (!instance) return null;
+  const pet = petItems.get(instance.petId);
+  return pet ? { ...pet, instanceName: instance.name, petLevel: instance.petLevel, instanceId: instance.id } : null;
+}
+
+function buildHutNavRow(userId: string) {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`hut:collect:${userId}`)
       .setEmoji(config.emojis.collect)
-      .setLabel(`Collect`)
+      .setLabel("Collect")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`hut:inventory:${userId}`)
       .setEmoji(config.emojis.inventory)
-      .setLabel(`Inventory`)
+      .setLabel("Inventory")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`hut:upgrades:${userId}`)
+      .setEmoji(config.emojis.up_arrow)
+      .setLabel("Upgrades")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`hut:configure:${userId}`)
       .setEmoji(config.emojis.configure)
-      .setLabel(`Configure`)
+      .setLabel("Configure")
       .setStyle(ButtonStyle.Secondary),
   );
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`hut:upgrade:speed:${userId}`)
-      .setEmoji(config.emojis.up_arrow)
-      .setLabel(`Speed`)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`hut:upgrade:luck:${userId}`)
-      .setEmoji(config.emojis.up_arrow)
-      .setLabel(`Luck`)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`hut:upgrade:inv:${userId}`)
-      .setEmoji(config.emojis.up_arrow)
-      .setLabel(`Inv`)
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return [row1, row2] as const;
 }
 
 async function buildHutMainPayload(userId: string) {
@@ -83,36 +79,188 @@ async function buildHutMainPayload(userId: string) {
   if (!hutData) return null;
 
   const speedUpgrade = hutSpeedUpgrades.find((u) => u.level === hutData.speedLevel);
+  const luckUpgrade = hutLuckUpgrades.find((u) => u.level === hutData.luckLevel);
   const invUpgrade = hutInventoryUpgrades.find((u) => u.level === hutData.inventoryLevel);
   const rod = hutData.rodId ? rodItems.get(hutData.rodId) : null;
+  const pet = await resolveHutPet(hutData.petId);
   const hutInv = await getHutInventory(userId);
   const nextCollect = hutData.lastCollectedAt
-    ? new Date(
-        hutData.lastCollectedAt.getTime() +
-          (speedUpgrade?.speedMinutes ?? 60) * 60 * 1000,
-      )
+    ? new Date(hutData.lastCollectedAt.getTime() + (speedUpgrade?.speedMinutes ?? 60) * 60 * 1000)
     : new Date();
-  const durabilityDisplay = rod
+
+  const rodDisplay = rod
     ? `${rod.emoji} ${rod.name} (${hutData.rodDurability ?? "∞"} uses left)`
     : "None";
+  const petDisplay = pet
+    ? `${pet.emoji} ${pet.instanceName ?? pet.name} (Lv ${pet.petLevel})`
+    : "None";
+  const luckPct = Math.round((luckUpgrade?.luckBonus ?? 0) * 100);
 
-  const embedPayload = ui()
+  return ui()
     .color(config.colors.default)
     .title(`${config.emojis.hut} Your Hut`)
     .body(
-      `**Speed Level:** ${hutData.speedLevel} (${speedUpgrade?.speedMinutes ?? 60} min/catch)\n**Luck Level:** ${hutData.luckLevel}\n**Inventory:** ${hutInv.length} items / ${invUpgrade?.capacity ?? 12}`,
+      `**Speed:** Lv ${hutData.speedLevel} — ${speedUpgrade?.speedMinutes ?? 60} min/catch\n` +
+      `**Luck:** Lv ${hutData.luckLevel} — +${luckPct}% bonus\n` +
+      `**Inventory:** ${hutInv.length} / ${invUpgrade?.capacity ?? 12} items`,
     )
     .divider()
     .body(
-      `**Equipped Rod:** ${durabilityDisplay}\n**Next Catch (approx):** <t:${Math.floor(nextCollect.getTime() / 1000)}:R>`,
+      `**Rod:** ${rodDisplay}\n**Pet:** ${petDisplay}\n**Next Catch:** <t:${Math.floor(nextCollect.getTime() / 1000)}:R>`,
     )
-    .build();
+    .build({ rows: [buildHutNavRow(userId)] });
+}
 
-  const [row1, row2] = buildHutActionRows(userId);
-  return {
-    
-    components: [...embedPayload.components, row1, row2],
-  };
+async function buildHutUpgradesPayload(userId: string) {
+  const hutData = await getHut(userId);
+  if (!hutData) return null;
+
+  const builder = ui().color(config.colors.default).title(`${config.emojis.up_arrow} Hut Upgrades`);
+
+  // Speed
+  const curSpeed = hutSpeedUpgrades.find((u) => u.level === hutData.speedLevel);
+  const nextSpeed = hutSpeedUpgrades.find((u) => u.level === hutData.speedLevel + 1);
+  const speedMaxed = !nextSpeed;
+  builder.section(
+    `⏱️ **Speed** — Level ${hutData.speedLevel}/${hutSpeedUpgrades.length}\n` +
+    (speedMaxed
+      ? `-# ${curSpeed?.speedMinutes} min/catch — MAX`
+      : `-# ${curSpeed?.speedMinutes} → ${nextSpeed?.speedMinutes} min/catch\n-# Cost: ${nextSpeed?.cost.toLocaleString()} ${config.emojis.coin}`),
+    new ButtonBuilder()
+      .setCustomId(`hut:upgrade:speed:${userId}`)
+      .setLabel(speedMaxed ? "MAX" : "Buy")
+      .setStyle(speedMaxed ? ButtonStyle.Secondary : ButtonStyle.Primary)
+      .setDisabled(speedMaxed),
+  );
+
+  builder.divider();
+
+  // Luck
+  const curLuck = hutLuckUpgrades.find((u) => u.level === hutData.luckLevel);
+  const nextLuck = hutLuckUpgrades.find((u) => u.level === hutData.luckLevel + 1);
+  const luckMaxed = !nextLuck;
+  const curLuckPct = Math.round((curLuck?.luckBonus ?? 0) * 100);
+  const nextLuckPct = Math.round((nextLuck?.luckBonus ?? 0) * 100);
+  builder.section(
+    `🍀 **Luck** — Level ${hutData.luckLevel}/${hutLuckUpgrades.length}\n` +
+    (luckMaxed
+      ? `-# +${curLuckPct}% bonus — MAX`
+      : `-# +${curLuckPct}% → +${nextLuckPct}% bonus\n-# Cost: ${nextLuck?.cost.toLocaleString()} ${config.emojis.coin}`),
+    new ButtonBuilder()
+      .setCustomId(`hut:upgrade:luck:${userId}`)
+      .setLabel(luckMaxed ? "MAX" : "Buy")
+      .setStyle(luckMaxed ? ButtonStyle.Secondary : ButtonStyle.Primary)
+      .setDisabled(luckMaxed),
+  );
+
+  builder.divider();
+
+  // Inventory
+  const curInv = hutInventoryUpgrades.find((u) => u.level === hutData.inventoryLevel);
+  const nextInv = hutInventoryUpgrades.find((u) => u.level === hutData.inventoryLevel + 1);
+  const invMaxed = !nextInv;
+  builder.section(
+    `📦 **Inventory** — Level ${hutData.inventoryLevel}/${hutInventoryUpgrades.length}\n` +
+    (invMaxed
+      ? `-# ${curInv?.capacity} capacity — MAX`
+      : `-# ${curInv?.capacity} → ${nextInv?.capacity} capacity\n-# Cost: ${nextInv?.cost.toLocaleString()} ${config.emojis.coin}`),
+    new ButtonBuilder()
+      .setCustomId(`hut:upgrade:inv:${userId}`)
+      .setLabel(invMaxed ? "MAX" : "Buy")
+      .setStyle(invMaxed ? ButtonStyle.Secondary : ButtonStyle.Primary)
+      .setDisabled(invMaxed),
+  );
+
+  const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`hut:back:${userId}`)
+      .setLabel("◄ Back")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return builder.build({ rows: [backRow] });
+}
+
+async function buildHutConfigurePayload(userId: string) {
+  const hutData = await getHut(userId);
+  if (!hutData) return null;
+
+  const rod = hutData.rodId ? rodItems.get(hutData.rodId) : null;
+  const pet = await resolveHutPet(hutData.petId);
+  const userInventory = await getInventory(userId);
+  const userRods = userInventory.filter((r) => r.itemType === "rod");
+  const userPets = await getUserPets(userId);
+
+  const rodDisplay = rod
+    ? `${rod.emoji} ${rod.name} (${hutData.rodDurability ?? "∞"} uses left)`
+    : "None";
+  const petDisplay = pet
+    ? `${pet.emoji} ${pet.instanceName ?? pet.name} (Lv ${pet.petLevel})`
+    : "None";
+
+  const autoCollectLabel = hutData.autoCollect ? "✅ Auto-Collect: ON" : "❌ Auto-Collect: OFF";
+
+  const builder = ui()
+    .color(config.colors.default)
+    .title(`${config.emojis.configure} Configure Hut`)
+    .body(`**Rod:** ${rodDisplay}\n**Pet:** ${petDisplay}\n**Auto-Collect:** ${hutData.autoCollect ? "ON — overflow items are auto-sold" : "OFF"}`);
+
+  const configRows: ActionRowBuilder<any>[] = [];
+
+  if (userRods.length > 0) {
+    const rodSelect = new StringSelectMenuBuilder()
+      .setCustomId(`hut:setrod:${userId}`)
+      .setPlaceholder("Select a rod for your hut")
+      .addOptions(
+        userRods.slice(0, 25).map((r) => {
+          const rodDef = rodItems.get(r.itemId);
+          return new StringSelectMenuOptionBuilder()
+            .setLabel(rodDef ? `${rodDef.emoji} ${rodDef.name}` : r.itemId)
+            .setValue(r.itemId);
+        }),
+      );
+    configRows.push(new ActionRowBuilder().addComponents(rodSelect));
+  }
+
+  if (userPets.length > 0) {
+    const petSelect = new StringSelectMenuBuilder()
+      .setCustomId(`hut:setpet:${userId}`)
+      .setPlaceholder("Select a pet for your hut")
+      .addOptions(
+        userPets.slice(0, 25).map((p) => {
+          const petDef = petItems.get(p.petId);
+          const label = petDef ? `${petDef.emoji} ${p.name ?? petDef.name} (Lv ${p.petLevel})` : p.id;
+          return new StringSelectMenuOptionBuilder()
+            .setLabel(label)
+            .setValue(p.id);
+        }),
+      );
+    configRows.push(new ActionRowBuilder().addComponents(petSelect));
+  }
+
+  const btnRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`hut:unequiprod:${userId}`)
+      .setLabel("Unequip Rod")
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(!hutData.rodId),
+    new ButtonBuilder()
+      .setCustomId(`hut:unequippet:${userId}`)
+      .setLabel("Unequip Pet")
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(!hutData.petId),
+    new ButtonBuilder()
+      .setCustomId(`hut:autocollect:${userId}`)
+      .setLabel(autoCollectLabel)
+      .setStyle(hutData.autoCollect ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`hut:back:${userId}`)
+      .setLabel("◄ Back")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  configRows.push(btnRow);
+
+  return builder.build({ rows: configRows });
 }
 
 async function buildHutInventoryPayload(userId: string) {
@@ -142,7 +290,7 @@ async function buildHutInventoryPayload(userId: string) {
       new ButtonBuilder()
         .setCustomId(`hut:sellall:${userId}`)
         .setEmoji(config.emojis.pouch)
-        .setLabel(`Sell All`)
+        .setLabel("Sell All")
         .setStyle(ButtonStyle.Danger),
     );
   }
@@ -154,10 +302,7 @@ async function buildHutInventoryPayload(userId: string) {
   );
 
   const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...actionBtns);
-  return {
-    
-    components: [...invBuilder.build().components, actionRow],
-  };
+  return invBuilder.build({ rows: [actionRow] });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -388,18 +533,18 @@ export default {
           } else {
             const lines = result.items.map((it) => `${it.emoji} **${it.name}** ×${it.quantity}`);
             collectBody = `Collected **${result.total}** catches:\n${lines.join("\n")}`;
+            if (result.autoSoldCount > 0) {
+              collectBody += `\n\n💰 **Auto-sold ${result.autoSoldCount} overflow items** for **${result.autoSoldCoins.toLocaleString()}** ${config.emojis.coin}`;
+            }
           }
 
-          const collectEmbed = ui()
-            .color(config.colors.default)
-            .title(`${config.emojis.hut} Hut Collected!`)
-            .text(collectBody)
-            .build();
-          const [r1, r2] = buildHutActionRows(ctx.user.id);
-          await interaction.update({
-            
-            components: [...collectEmbed.components, r1, r2],
-          } as any);
+          await interaction.update(
+            ui()
+              .color(config.colors.default)
+              .title(`${config.emojis.hut} Hut Collected!`)
+              .text(collectBody)
+              .build({ rows: [buildHutNavRow(ctx.user.id)] }) as any,
+          );
           return;
         }
 
@@ -446,7 +591,14 @@ export default {
           return;
         }
 
-        // ── Upgrade ───────────────────────────────────────────────────────────
+        // ── Upgrades sub-view ────────────────────────────────────────────────
+        if (id === `hut:upgrades:${ctx.user.id}`) {
+          const payload = await buildHutUpgradesPayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
+          return;
+        }
+
+        // ── Upgrade (buy) ───────────────────────────────────────────────────
         if (id.startsWith("hut:upgrade:")) {
           const parts = id.split(":");
           const upgradeType = parts[2] as "speed" | "luck" | "inventory" | "inv";
@@ -459,81 +611,47 @@ export default {
             });
             return;
           }
-          const upgradeEmbed = ui()
-            .color(config.colors.default)
-            .title(`${config.emojis.tick} Hut Upgraded!`)
-            .text(`Your hut's **${type}** is now level **${result.newLevel}**.`)
-            .build();
-          const [r1, r2] = buildHutActionRows(ctx.user.id);
-          await interaction.update({
-            
-            components: [...upgradeEmbed.components, r1, r2],
-          } as any);
+          // Stay on upgrades view with refreshed data
+          const payload = await buildHutUpgradesPayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
           return;
         }
 
-        // ── Configure ─────────────────────────────────────────────────────────
+        // ── Configure sub-view ──────────────────────────────────────────────
         if (id === `hut:configure:${ctx.user.id}`) {
-          const userInventory = await getInventory(ctx.user.id);
-          const userRods = userInventory.filter((r) => r.itemType === "rod");
-          const userPets = await getUserPets(ctx.user.id);
-
-          const configEmbed = ui()
-            .color(config.colors.default)
-            .title(`${config.emojis.configure} Configure Hut`)
-            .text("Select a rod or pet to assign to your hut.")
-            .build();
-
-          const components: any[] = [...configEmbed.components];
-
-          if (userRods.length > 0) {
-            const rodSelect = new StringSelectMenuBuilder()
-              .setCustomId(`hut:setrod:${ctx.user.id}`)
-              .setPlaceholder("Select a rod for your hut")
-              .addOptions(
-                userRods.slice(0, 25).map((r) => {
-                  const rod = rodItems.get(r.itemId);
-                  return new StringSelectMenuOptionBuilder()
-                    .setLabel(rod ? `${rod.emoji} ${rod.name}` : r.itemId)
-                    .setValue(r.itemId);
-                }),
-              );
-            components.push(new ActionRowBuilder().addComponents(rodSelect));
-          }
-
-          if (userPets.length > 0) {
-            const petSelect = new StringSelectMenuBuilder()
-              .setCustomId(`hut:setpet:${ctx.user.id}`)
-              .setPlaceholder("Select a pet for your hut")
-              .addOptions(
-                userPets.slice(0, 25).map((p) => {
-                  const pet = petItems.get(p.petId);
-                  const label = pet ? `${pet.emoji} ${p.name ?? pet.name} (Lv ${p.petLevel})` : p.id;
-                  return new StringSelectMenuOptionBuilder()
-                    .setLabel(label)
-                    .setValue(p.id);
-                }),
-              );
-            components.push(new ActionRowBuilder().addComponents(petSelect));
-          }
-
-          components.push(
-            new ActionRowBuilder<ButtonBuilder>().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`hut:back:${ctx.user.id}`)
-                .setLabel("◄ Back")
-                .setStyle(ButtonStyle.Secondary),
-            ),
-          );
-
-          await interaction.update({
-            
-            components,
-          } as any);
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
           return;
         }
 
-        // ── Set rod (string select) ───────────────────────────────────────────
+        // ── Unequip rod ─────────────────────────────────────────────────────
+        if (id === `hut:unequiprod:${ctx.user.id}`) {
+          await db.update(hut).set({ rodId: null, rodDurability: null }).where(eq(hut.userId, ctx.user.id));
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
+          return;
+        }
+
+        // ── Unequip pet ─────────────────────────────────────────────────────
+        if (id === `hut:unequippet:${ctx.user.id}`) {
+          await setHutPet(ctx.user.id, null);
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
+          return;
+        }
+
+        // ── Toggle auto-collect ───────────────────────────────────────────
+        if (id === `hut:autocollect:${ctx.user.id}`) {
+          const hutData = await getHut(ctx.user.id);
+          if (hutData) {
+            await db.update(hut).set({ autoCollect: !hutData.autoCollect }).where(eq(hut.userId, ctx.user.id));
+          }
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
+          return;
+        }
+
+        // ── Set rod (string select) ─────────────────────────────────────────
         if (id === `hut:setrod:${ctx.user.id}` && interaction.isStringSelectMenu()) {
           const rodId = interaction.values[0];
           const result = await setHutRod(ctx.user.id, rodId);
@@ -544,21 +662,13 @@ export default {
             });
             return;
           }
-          const rod = rodItems.get(rodId);
-          const confirmEmbed = ui()
-            .color(config.colors.default)
-            .title(`${config.emojis.tick} Rod Equipped`)
-            .text(`Equipped **${rod?.emoji ?? ""} ${rod?.name ?? rodId}** to your hut.`)
-            .build();
-          const [r1, r2] = buildHutActionRows(ctx.user.id);
-          await interaction.update({
-            
-            components: [...confirmEmbed.components, r1, r2],
-          } as any);
+          // Stay on configure view
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
           return;
         }
 
-        // ── Set pet (string select) ───────────────────────────────────────────
+        // ── Set pet (string select) ─────────────────────────────────────────
         if (id === `hut:setpet:${ctx.user.id}` && interaction.isStringSelectMenu()) {
           const petInstanceId = interaction.values[0];
           const result = await setHutPet(ctx.user.id, petInstanceId);
@@ -569,21 +679,9 @@ export default {
             });
             return;
           }
-          const instances = await db
-            .select()
-            .from(petInstance)
-            .where(eq(petInstance.id, petInstanceId));
-          const pet = instances[0] ? petItems.get(instances[0].petId) : null;
-          const confirmEmbed = ui()
-            .color(config.colors.default)
-            .title(`${config.emojis.tick} Pet Assigned`)
-            .text(`Assigned **${pet?.emoji ?? ""} ${pet?.name ?? petInstanceId}** to your hut.`)
-            .build();
-          const [r1, r2] = buildHutActionRows(ctx.user.id);
-          await interaction.update({
-            
-            components: [...confirmEmbed.components, r1, r2],
-          } as any);
+          // Stay on configure view
+          const payload = await buildHutConfigurePayload(ctx.user.id);
+          if (payload) await interaction.update(payload as any);
           return;
         }
       });

@@ -4,6 +4,7 @@ import { Command } from "@/core/typings";
 import { allItems, fishItems } from "@/data";
 import { getInventory, removeItem } from "@/modules/fishing/inventory";
 import { getOrCreateProfile } from "@/modules/fishing/economy";
+import { getLevel } from "@/utils/leveling";
 import { db } from "@/db";
 import { fishingProfile } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -73,7 +74,7 @@ export default {
     // Add XP without incrementing totalCatches
     const profile = await getOrCreateProfile(ctx.user.id);
     const newXp = profile.xp + xpGained;
-    const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
+    const newLevel = getLevel(newXp);
 
     await db
       .update(fishingProfile)

@@ -277,5 +277,6 @@ export function deleteGame(gameId: string): void {
 
 export const LOW_STAKES = { min: 100, max: 5_000 };
 export const HIGH_STAKES = { min: 5_000, max: 250_000 };
+export const VIP_STAKES = { min: 500_000, max: 20_000_000 };
 
 export { CARD_BACK };

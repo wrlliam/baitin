@@ -11,6 +11,8 @@ import {
 } from "@/data";
 import { getOrCreateProfile } from "@/modules/fishing/economy";
 import { getActiveBuffs } from "@/modules/fishing/buffs";
+import { titleMap } from "@/data/titles";
+import { xpIntoCurrentLevel, xpForNextLevel } from "@/utils/leveling";
 import {
   getInventory,
   getItemCount,
@@ -58,8 +60,9 @@ function buildTabRow(active: ProfileTab): ActionRowBuilder<ButtonBuilder> {
 
 async function buildOverview(target: User) {
   const profile = await getOrCreateProfile(target.id);
-  const xpIntoLevel = profile.xp % config.xpPerLevel;
-  const bar = xpBar(xpIntoLevel, config.xpPerLevel);
+  const xpIntoLevel = xpIntoCurrentLevel(profile.xp);
+  const xpNeeded = xpForNextLevel(profile.level);
+  const bar = xpBar(xpIntoLevel, xpNeeded);
   const used = await getItemCount(target.id);
   const capacity = await getSackCapacity(target.id);
   const sackTier = sackTiers.find((t) => t.level === profile.sackLevel);
@@ -78,11 +81,11 @@ async function buildOverview(target: User) {
   return ui()
     .color(config.colors.default)
     .section(
-      `**${target.username}**\nLevel **${profile.level}** Fisher`,
+      `**${target.username}**${profile.equippedTitle ? ` — ${titleMap.get(profile.equippedTitle)?.emoji ?? ""} ${titleMap.get(profile.equippedTitle)?.name ?? ""}` : ""}\nLevel **${profile.level}** Fisher${(profile.prestigeLevel ?? 0) > 0 ? ` • ⭐ Prestige ${profile.prestigeLevel}` : ""}`,
       ui.thumb(target.displayAvatarURL({ extension: "png", size: 128 })),
     )
     .gap()
-    .text(`\`[${bar}]\` ${xpIntoLevel}/${config.xpPerLevel} XP to next level`)
+    .text(`\`[${bar}]\` ${xpIntoLevel}/${xpNeeded} XP to next level`)
     .divider()
     .text(
       `${config.emojis.coin} **Wallet** — ${profile.coins.toLocaleString()} coins\n` +

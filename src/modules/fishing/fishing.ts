@@ -13,22 +13,41 @@ import { getActiveEvent } from "./events";
 import { getPetBuffs } from "./pets";
 import { applyBuffsToCalculation } from "./buffs";
 import { checkCatchAchievements } from "./achievements";
+import { getOrCreateUpgrades, incrementCastCount } from "./upgrades";
 import { createId } from "@/utils/misc";
 import config from "@/config";
+import { getLevel } from "@/utils/leveling";
+import { levelRewardMap } from "@/data/levels";
+import { getRepPerks } from "./reputation";
+import { getCurrentWeather } from "./weather";
+import { addBattlepassXp } from "./battlepass";
+import { locationMap } from "@/data/locations";
+import { getCurrentSeason as getSeasonData } from "@/data/seasons";
+import { getSeasonalFish } from "./seasons";
 import type { CatchResult, Fish, JunkItem } from "@/data/types";
 
-const COOLDOWN_SECONDS = 15;
+const COOLDOWN_SECONDS = 20;
+
+/** Deterministic "Fish of the Day" — same fish for all players on a given UTC day */
+export function getFishOfTheDay(): Fish {
+  const daySeed = Math.floor(Date.now() / 86_400_000);
+  return fishData[daySeed % fishData.length];
+}
 
 export async function canFish(
   userId: string,
-): Promise<{ ok: boolean; remaining: number }> {
+): Promise<{ ok: boolean; remaining: number; expiresAt?: number }> {
   const key = `fish:cd:${userId}`;
   const lastFish = await redis.get(key);
 
   if (lastFish) {
-    const elapsed = Date.now() - parseInt(lastFish);
+    const setAt = parseInt(lastFish);
+    const elapsed = Date.now() - setAt;
     const remaining = Math.max(0, COOLDOWN_SECONDS * 1000 - elapsed);
-    if (remaining > 0) return { ok: false, remaining };
+    if (remaining > 0) {
+      const expiresAt = Math.floor((setAt + COOLDOWN_SECONDS * 1000) / 1000);
+      return { ok: false, remaining, expiresAt };
+    }
   }
 
   return { ok: true, remaining: 0 };
@@ -42,10 +61,11 @@ export async function doFish(userId: string): Promise<CatchResult> {
     ? baitItems.get(profile.equippedBaitId)
     : null;
 
-  // ── Parallelize independent async calls: petBuffs + event ──
-  const [petBuffs, event] = await Promise.all([
+  // ── Parallelize independent async calls: petBuffs + event + upgrades ──
+  const [petBuffs, event, upgData] = await Promise.all([
     getPetBuffs(userId, profile),
     getActiveEvent(),
+    getOrCreateUpgrades(userId),
   ]);
 
   // Build junk chance: base 20%, reduced by rod luck and bait
@@ -59,6 +79,7 @@ export async function doFish(userId: string): Promise<CatchResult> {
   let rarityMult = 1;
   let xpMult = 1;
   let coinMult = 1;
+  let eventCdMult = 1;
 
   if (event) {
     // Check entry fee enforcement: only apply event bonuses if no fee or user has joined
@@ -75,21 +96,71 @@ export async function doFish(userId: string): Promise<CatchResult> {
         if (effect.type === "xp_multiplier") xpMult *= effect.value;
         if (effect.type === "coin_multiplier") coinMult *= effect.value;
         if (effect.type === "catch_rate") junkChance /= effect.value;
+        if (effect.type === "junk_reduction") junkChance *= effect.value;
+        if (effect.type === "cooldown_reduction") eventCdMult *= effect.value;
       }
     }
+  }
+
+  // Weather effects (deterministic from UTC time, no Redis)
+  const weather = getCurrentWeather();
+  for (const effect of weather.effects) {
+    if (effect.type === "rarity_boost") rarityMult *= effect.value;
+    if (effect.type === "xp_multiplier") xpMult *= effect.value;
+    if (effect.type === "coin_multiplier") coinMult *= effect.value;
+    if (effect.type === "catch_rate") junkChance /= effect.value;
+  }
+
+  // Location effects
+  const location = locationMap.get(profile.equippedLocation ?? "pond");
+  if (location) {
+    for (const effect of location.effects) {
+      if (effect.type === "rarity_boost") rarityMult *= effect.value;
+      if (effect.type === "xp_multiplier") xpMult *= effect.value;
+      if (effect.type === "coin_multiplier") coinMult *= effect.value;
+      if (effect.type === "catch_rate") junkChance /= effect.value;
+    }
+  }
+
+  // Seasonal effects
+  const season = getSeasonData();
+  for (const effect of season.effects) {
+    if (effect.type === "rarity_boost") rarityMult *= effect.value;
+    if (effect.type === "xp_multiplier") xpMult *= effect.value;
+    if (effect.type === "coin_multiplier") coinMult *= effect.value;
+    if (effect.type === "catch_rate") junkChance /= effect.value;
+  }
+
+  // Chum Streamer: every 10th cast gets a luck bonus
+  let chumProc = false;
+  if (upgData.chumStreamer) {
+    const castCount = await incrementCastCount(userId);
+    if (castCount % 10 === 0) {
+      rarityMult *= 1.5;
+      junkChance *= 0.5;
+      chumProc = true;
+    }
+  }
+
+  // High-Tension Line: +10% luck bonus on legendary+ fish
+  if (upgData.highTensionLine) {
+    rarityMult *= 1.1;
   }
 
   // Bait rarity multiplier
   if (bait) rarityMult *= bait.rarityMultiplier;
   if (rod) rarityMult += rod.luckBonus;
 
-  // Cooldown base seconds (pets reduce it)
+  // Cooldown base seconds (pets + events reduce it)
   let cdSeconds = COOLDOWN_SECONDS;
   if (petBuffs.cooldown_reduction) {
     cdSeconds = Math.max(
       5,
       Math.floor(cdSeconds * (1 - petBuffs.cooldown_reduction)),
     );
+  }
+  if (eventCdMult !== 1) {
+    cdSeconds = Math.max(5, Math.floor(cdSeconds * eventCdMult));
   }
 
   // Apply active buffs (potions)
@@ -112,23 +183,37 @@ export async function doFish(userId: string): Promise<CatchResult> {
   if (isJunk) {
     item = weightedRandom(junkData);
   } else {
-    item = weightedRandomWithRarity(fishData, rarityMult);
+    // Inject location-exclusive fish + seasonal fish into the pool
+    const extras: Fish[] = [];
+    if (location && location.exclusiveFish.length > 0) extras.push(...location.exclusiveFish);
+    const seasonal = getSeasonalFish();
+    if (seasonal.length > 0) extras.push(...seasonal);
+    const fishPool = extras.length > 0 ? [...fishData, ...extras] : fishData;
+    item = weightedRandomWithRarity(fishPool, rarityMult);
   }
 
-  // Consume bait
+  // Consume bait (Bait Compressor: 15% chance to skip consumption)
   let baitConsumed = false;
+  let baitRemaining: number | null = null;
+  let baitRanOut = false;
   if (bait && bait.consumedOnUse) {
+    const skipConsume = upgData.baitCompressor && Math.random() < 0.15;
     const qty = await getItemQuantity(userId, bait.id);
-    if (qty > 0) {
+    if (qty > 0 && !skipConsume) {
       await removeItem(userId, bait.id, 1);
       baitConsumed = true;
-      // If last bait, unequip
+      baitRemaining = qty - 1;
+      // If last bait, unequip but keep preferredBaitId for re-equip later
       if (qty <= 1) {
+        baitRanOut = true;
         await db
           .update(fishingProfile)
           .set({ equippedBaitId: null })
           .where(eq(fishingProfile.userId, userId));
       }
+    } else if (qty > 0 && skipConsume) {
+      // Bait compressor saved the bait
+      baitRemaining = qty;
     }
   }
 
@@ -152,11 +237,28 @@ export async function doFish(userId: string): Promise<CatchResult> {
     }
   }
 
-  // Add to inventory — pass sackLevel to avoid re-fetching profile
-  await addItem(userId, item.id, item.category, 1, profile.sackLevel);
+  // Add to inventory — pass sackLevel + tackleBoxLevel to avoid re-fetching
+  await addItem(userId, item.id, item.category, 1, profile.sackLevel, upgData.tackleBoxLevel);
+
+  // Auto-Sell: immediately sell low-value catches
+  let autoSold = false;
+  let autoSoldCoins = 0;
+  if (upgData.autoSellEnabled && item.price <= upgData.autoSellMinValue) {
+    // Deep-Sea Sonar: skip auto-sell if rarity is whitelisted
+    const sonarRarities = (upgData.deepSeaSonarRarities as string[]) ?? [];
+    if (!sonarRarities.includes(item.rarity)) {
+      await removeItem(userId, item.id, 1);
+      autoSoldCoins = item.price;
+      autoSold = true;
+    }
+  }
+
+  // Fish of the Day: 2× base coin value
+  const isFotd = !isJunk && item.id === getFishOfTheDay().id;
+  const fotdMult = isFotd ? 2 : 1;
 
   // XP and coins
-  const baseCoins = Math.max(1, Math.floor(item.price * 0.1));
+  const baseCoins = Math.max(1, Math.floor(item.price * 0.1)) * fotdMult;
   const baseXp = isJunk ? 1 : (item as Fish).xp;
 
   // Level coin bonus: +1.5% per level above 1
@@ -195,28 +297,51 @@ export async function doFish(userId: string): Promise<CatchResult> {
     xpMult *= 1 + bonusMult;
   }
 
+  // Prestige bonus: +5% XP, +3% coins per prestige level
+  const prestigeXpMult = 1 + (profile.prestigeLevel ?? 0) * 0.05;
+  const prestigeCoinMult = 1 + (profile.prestigeLevel ?? 0) * 0.03;
+
   const finalCoins = Math.floor(
-    baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus,
+    baseCoins * coinMult * (1 + (petBuffs.coin_boost ?? 0)) * levelCoinBonus * prestigeCoinMult,
   );
-  const finalXp = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)));
+  // Rep perk: +5% XP at 100+ rep
+  const repPerks = getRepPerks(profile.reputation);
+  const finalXp = Math.floor(baseXp * xpMult * (1 + (petBuffs.xp_boost ?? 0)) * (1 + repPerks.xpBonus) * prestigeXpMult);
 
   // ── Batch the final writes: combine addXp fields + streak + totalCatches into one UPDATE ──
   const newXp = profile.xp + finalXp;
-  const newLevel = Math.floor(newXp / config.xpPerLevel) + 1;
+  const newLevel = getLevel(newXp);
   const levelUp = newLevel > profile.level;
 
   profileUpdates.xp = newXp;
   profileUpdates.level = newLevel;
   profileUpdates.totalCatches = sql`${fishingProfile.totalCatches} + 1`;
 
-  // Apply the batched profile update (streak + xp + level + totalCatches in one query)
+  // Level milestone rewards
+  let milestoneCoins = 0;
+  if (levelUp) {
+    for (let lvl = profile.level + 1; lvl <= newLevel; lvl++) {
+      const reward = levelRewardMap.get(lvl);
+      if (reward) {
+        milestoneCoins += reward.coins;
+        if (reward.gems > 0) {
+          profileUpdates.gems = sql`${fishingProfile.gems} + ${reward.gems}`;
+        }
+      }
+    }
+  }
+
+  // Apply the batched profile update (streak + xp + level + totalCatches + gems in one query)
   await db
     .update(fishingProfile)
     .set(profileUpdates)
     .where(eq(fishingProfile.userId, userId));
 
   // addCoins still needs its own UPDATE because of the RETURNING + achievement check
-  await addCoins(userId, finalCoins);
+  await addCoins(userId, finalCoins + autoSoldCoins + milestoneCoins);
+
+  // Battle pass XP (fire-and-forget)
+  void addBattlepassXp(userId, finalXp);
 
   // Hut drop chance (~0.1%)
   const hutDrop = Math.random() < 0.001;
@@ -271,6 +396,11 @@ export async function doFish(userId: string): Promise<CatchResult> {
     streakDay: currentStreak,
     streakBonus,
     newAchievements,
+    baitRemaining,
+    baitRanOut,
+    autoSold,
+    autoSoldCoins,
+    fotd: isFotd,
   };
 }
 

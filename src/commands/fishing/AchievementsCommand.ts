@@ -1,6 +1,7 @@
 import { ui } from "@/ui";
 import { Command } from "@/core/typings";
-import { achievementDefs } from "@/data/achievements";
+import { achievementDefs, type ProgressType } from "@/data/achievements";
+import { getAchievementProgress } from "@/modules/fishing/achievements";
 import { db } from "@/db";
 import { achievement } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -12,6 +13,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   User,
   MessageFlags,
 } from "discord.js";
@@ -27,7 +30,17 @@ const CATEGORY_LABELS: Record<string, string> = {
 const CATEGORIES = ["catches", "economy", "gear", "social", "fun"] as const;
 type AchCat = (typeof CATEGORIES)[number];
 
-async function buildPage(target: User, category: AchCat) {
+function progressBar(current: number, goal: number, width = 10): string {
+  const filled = Math.min(width, Math.floor((current / goal) * width));
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+async function buildPage(
+  target: User,
+  category: AchCat,
+  search: string | null,
+  progress: Record<ProgressType, number>,
+) {
   const rows = await db
     .select()
     .from(achievement)
@@ -35,7 +48,18 @@ async function buildPage(target: User, category: AchCat) {
 
   const unlockedMap = new Map(rows.map((r) => [r.achievementId, r.unlockedAt]));
 
-  const inCategory = achievementDefs.filter((a) => a.category === category);
+  let inCategory = achievementDefs.filter((a) => a.category === category);
+
+  // Apply search filter
+  if (search) {
+    const q = search.toLowerCase();
+    inCategory = inCategory.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q),
+    );
+  }
+
   const unlockedCount = inCategory.filter((a) => unlockedMap.has(a.id)).length;
 
   const lines = inCategory.map((a) => {
@@ -44,11 +68,18 @@ async function buildPage(target: User, category: AchCat) {
       const ts = `<t:${Math.floor(unlockedAt.getTime() / 1000)}:d>`;
       return `${a.emoji} **${a.name}** — ${a.description}\n-# ${config.emojis.tick} Unlocked ${ts} • +${a.coinReward}${config.emojis.coin} +${a.xpReward}XP`;
     } else {
+      // Show progress bar for locked achievements with a goal
+      if (a.goal && a.progressType) {
+        const current = Math.min(progress[a.progressType], a.goal);
+        const bar = progressBar(current, a.goal);
+        const unit = a.progressType === "collection" ? "%" : "";
+        return `${config.emojis.lock} **${a.name}** — ${a.description}\n-# \`[${bar}]\` ${current}${unit}/${a.goal}${unit}`;
+      }
       return `${config.emojis.lock} **${a.name}** — ${a.description}`;
     }
   });
 
-  const totalUnlocked = rows.length;
+  const totalUnlocked = rows.filter((r) => !r.achievementId.startsWith("__")).length;
   const totalDefs = achievementDefs.length;
 
   const embed = ui()
@@ -56,10 +87,11 @@ async function buildPage(target: User, category: AchCat) {
     .title(`${config.emojis.achievement} Achievements — ${CATEGORY_LABELS[category]}`)
     .text(
       `**${target.username}** — ${totalUnlocked}/${totalDefs} unlocked\n` +
-        `${CATEGORY_LABELS[category]}: ${unlockedCount}/${inCategory.length}`,
+        `${CATEGORY_LABELS[category]}: ${unlockedCount}/${inCategory.length}` +
+        (search ? `\n🔍 Searching: "${search}"` : ""),
     )
     .divider()
-    .text(lines.join("\n\n"))
+    .text(lines.length > 0 ? lines.join("\n\n") : "*No achievements match your search.*")
     .footer("Complete achievements to earn bonus coins and XP!");
 
   return embed;
@@ -73,6 +105,22 @@ function buildTabRow(active: AchCat): ActionRowBuilder<ButtonBuilder> {
         .setLabel(CATEGORY_LABELS[cat])
         .setStyle(cat === active ? ButtonStyle.Primary : ButtonStyle.Secondary),
     ),
+  );
+}
+
+function buildSearchRow(userId: string): ActionRowBuilder<StringSelectMenuBuilder> {
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`ach:search:${userId}`)
+      .setPlaceholder("🔍 Filter achievements...")
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel("Show All").setValue("__all__").setDescription("Remove search filter"),
+        new StringSelectMenuOptionBuilder().setLabel("Catches & Milestones").setValue("catch").setDescription("Filter by catch-related"),
+        new StringSelectMenuOptionBuilder().setLabel("Rarity").setValue("rare").setDescription("Rare, Epic, Legendary, Mythic"),
+        new StringSelectMenuOptionBuilder().setLabel("Streak").setValue("streak").setDescription("Streak-related achievements"),
+        new StringSelectMenuOptionBuilder().setLabel("Collection").setValue("collector").setDescription("Species collection milestones"),
+        new StringSelectMenuOptionBuilder().setLabel("Junk").setValue("junk").setDescription("Junk-related achievements"),
+      ),
   );
 }
 
@@ -93,23 +141,41 @@ export default {
     const target = args.getUser("user") ?? ctx.user;
 
     let activeTab: AchCat = "catches";
-    let embed = await buildPage(target, activeTab);
+    let searchQuery: string | null = null;
+
+    const progress = await getAchievementProgress(target.id);
+    let embed = await buildPage(target, activeTab, searchQuery, progress);
 
     const message = await ctx.editReply(
-      embed.build({ rows: [buildTabRow(activeTab)] }) as any,
+      embed.build({ rows: [buildSearchRow(ctx.user.id), buildTabRow(activeTab)] }) as any,
     );
 
     const collector = message.createMessageComponentCollector({
-      componentType: ComponentType.Button,
       filter: (i) => i.user.id === ctx.user.id,
       time: 5 * 60 * 1000,
     });
 
     collector.on("collect", async (i) => {
-      if (!i.customId.startsWith("ach:tab:")) return i.deferUpdate();
-      activeTab = i.customId.replace("ach:tab:", "") as AchCat;
-      const newEmbed = await buildPage(target, activeTab);
-      await i.update(newEmbed.build({ rows: [buildTabRow(activeTab)] }) as any);
+      if (i.customId.startsWith("ach:tab:")) {
+        activeTab = i.customId.replace("ach:tab:", "") as AchCat;
+        const newEmbed = await buildPage(target, activeTab, searchQuery, progress);
+        await i.update(
+          newEmbed.build({ rows: [buildSearchRow(ctx.user.id), buildTabRow(activeTab)] }) as any,
+        );
+        return;
+      }
+
+      if (i.customId === `ach:search:${ctx.user.id}` && i.isStringSelectMenu()) {
+        const val = i.values[0];
+        searchQuery = val === "__all__" ? null : val;
+        const newEmbed = await buildPage(target, activeTab, searchQuery, progress);
+        await i.update(
+          newEmbed.build({ rows: [buildSearchRow(ctx.user.id), buildTabRow(activeTab)] }) as any,
+        );
+        return;
+      }
+
+      await i.deferUpdate();
     });
 
     collector.on("end", async () => {

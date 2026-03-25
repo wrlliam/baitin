@@ -3,11 +3,12 @@ import { redis } from "@/db/redis";
 import { db } from "@/db";
 import { fishingProfile } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { baits, rods, eggs, potions } from "@/data";
+import { baits, rods, eggs, potions, rodItems } from "@/data";
 import { getOrCreateProfile, subtractCoins, addCoins } from "./economy";
 import { addItem } from "./inventory";
 import { getBuffTotal } from "./buffs";
-import type { BaseItem } from "@/data/types";
+import { getRepPerks } from "./reputation";
+import type { BaseItem, Rod } from "@/data/types";
 
 export const SHOP_CATEGORIES = ["bait", "rod", "potion", "egg", "special"] as const;
 export type ShopCategory = (typeof SHOP_CATEGORIES)[number];
@@ -206,6 +207,13 @@ export async function buyShopItem(
     price = Math.max(1, Math.floor(price * (1 - costReduction)));
   }
 
+  // Rep perk: -5% shop prices at 10+ rep
+  const profile = await getOrCreateProfile(userId);
+  const repPerks = getRepPerks(profile.reputation);
+  if (repPerks.shopDiscount > 0) {
+    price = Math.max(1, Math.floor(price * (1 - repPerks.shopDiscount)));
+  }
+
   // Special handling for hut_permit
   if (itemId === "hut_permit") {
     const profile = await getOrCreateProfile(userId);
@@ -219,6 +227,39 @@ export async function buyShopItem(
     await db
       .update(fishingProfile)
       .set({ hutOwned: true })
+      .where(eq(fishingProfile.userId, userId));
+
+    return { success: true, item, price };
+  }
+
+  // ── Rod auto-replace: equip directly, don't add to inventory ──
+  if (rod) {
+    const profile = await getOrCreateProfile(userId);
+    const currentRod = rodItems.get(profile.equippedRodId ?? "splintered_twig");
+    const currentBuyPrice = currentRod ? (currentRod as Rod).buyPrice : 0;
+
+    if (rod.buyPrice <= currentBuyPrice) {
+      // Rollback stock
+      if (isLimited) {
+        const key = getDailyStockKey(itemId);
+        await redis.send("INCR", [key]);
+      }
+      return { success: false, error: `You already have a better rod equipped! (${currentRod?.name ?? "Splintered Twig"})` };
+    }
+
+    const paid = await subtractCoins(userId, price);
+    if (!paid) {
+      if (isLimited) {
+        const key = getDailyStockKey(itemId);
+        await redis.send("INCR", [key]);
+      }
+      return { success: false, error: "Not enough coins." };
+    }
+
+    // Equip the new rod directly on the profile
+    await db
+      .update(fishingProfile)
+      .set({ equippedRodId: rod.id, equippedRodDurability: rod.durability > 0 ? rod.durability : null })
       .where(eq(fishingProfile.userId, userId));
 
     return { success: true, item, price };

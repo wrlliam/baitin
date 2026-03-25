@@ -23,6 +23,7 @@ import {
   handStr,
   LOW_STAKES,
   HIGH_STAKES,
+  VIP_STAKES,
   type BlackjackGame,
 } from "@/modules/games/blackjack";
 import {
@@ -171,7 +172,6 @@ async function startGame(interaction: any, userId: string, amount: number) {
       .footer("Hit to draw, Stand to hold, Double Down for 2× bet + 1 card")
       .build({ rows: [gameButtons(gameId, canDouble)] }),
     withResponse: true,
-    fetchReply: true,
   } as any);
 
   const reply = resource?.message ?? await interaction.fetchReply();
@@ -354,6 +354,11 @@ export default {
         .setLabel(`High Stakes (${HIGH_STAKES.min.toLocaleString()}-${HIGH_STAKES.max.toLocaleString()})`)
         .setStyle(DjsButtonStyle.Danger)
         .setEmoji("💎"),
+      new ButtonBuilder()
+        .setCustomId("bj:stakes:vip")
+        .setLabel(`VIP (${VIP_STAKES.min.toLocaleString()}-${VIP_STAKES.max.toLocaleString()})`)
+        .setStyle(DjsButtonStyle.Success)
+        .setEmoji("👑"),
     );
 
     const { resource } = await ctx.reply({
@@ -367,12 +372,12 @@ export default {
         .divider()
         .text(
           `🎰 **Low Stakes** — ${LOW_STAKES.min.toLocaleString()} to ${LOW_STAKES.max.toLocaleString()} coins\n` +
-          `💎 **High Stakes** — ${HIGH_STAKES.min.toLocaleString()} to ${HIGH_STAKES.max.toLocaleString()} coins`,
+          `💎 **High Stakes** — ${HIGH_STAKES.min.toLocaleString()} to ${HIGH_STAKES.max.toLocaleString()} coins\n` +
+          `👑 **VIP** — ${VIP_STAKES.min.toLocaleString()} to ${VIP_STAKES.max.toLocaleString()} coins`,
         )
         .footer("Beat the dealer to win! Blackjack pays 2.5×")
         .build({ rows: [stakesRow] }),
       withResponse: true,
-      fetchReply: true,
     } as any);
 
     const reply = resource?.message ?? await ctx.fetchReply();
@@ -385,13 +390,13 @@ export default {
     });
 
     stakesCollector.on("collect", async (i: any) => {
-      const tier = i.customId === "bj:stakes:high" ? "high" : "low";
-      const stakes = tier === "high" ? HIGH_STAKES : LOW_STAKES;
+      const tier = i.customId === "bj:stakes:vip" ? "vip" : i.customId === "bj:stakes:high" ? "high" : "low";
+      const stakes = tier === "vip" ? VIP_STAKES : tier === "high" ? HIGH_STAKES : LOW_STAKES;
 
       // Show modal for bet amount
       const modal = new ModalBuilder()
         .setCustomId(`bj:modal:${tier}`)
-        .setTitle(`${tier === "high" ? "💎 High" : "🎰 Low"} Stakes Blackjack`);
+        .setTitle(`${tier === "vip" ? "👑 VIP" : tier === "high" ? "💎 High" : "🎰 Low"} Stakes Blackjack`);
 
       const betInput = new TextInputBuilder()
         .setCustomId("bet_amount")
@@ -400,7 +405,7 @@ export default {
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
-        .setMaxLength(7);
+        .setMaxLength(10);
 
       const row = new ActionRowBuilder<TextInputBuilder>().addComponents(betInput);
       modal.addComponents(row as any);

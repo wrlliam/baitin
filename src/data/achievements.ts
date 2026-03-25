@@ -1,3 +1,5 @@
+export type ProgressType = "catches" | "junk" | "streak" | "collection" | "coins" | "steals";
+
 export interface AchievementDef {
   id: string;
   name: string;
@@ -9,6 +11,10 @@ export interface AchievementDef {
   xpReward: number;
   /** Category for display grouping */
   category: "catches" | "economy" | "gear" | "social" | "fun";
+  /** Target count for progress-based achievements */
+  goal?: number;
+  /** Which stat drives progress toward this goal */
+  progressType?: ProgressType;
 }
 
 export const achievementDefs: AchievementDef[] = [
@@ -30,6 +36,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 100,
     xpReward: 20,
     category: "catches",
+    goal: 10,
+    progressType: "catches",
   },
   {
     id: "catches_100",
@@ -39,6 +47,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 500,
     xpReward: 100,
     category: "catches",
+    goal: 100,
+    progressType: "catches",
   },
   {
     id: "catches_500",
@@ -48,6 +58,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 2000,
     xpReward: 300,
     category: "catches",
+    goal: 500,
+    progressType: "catches",
   },
   {
     id: "catches_1000",
@@ -57,6 +69,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 5000,
     xpReward: 500,
     category: "catches",
+    goal: 1000,
+    progressType: "catches",
   },
   {
     id: "first_rare",
@@ -102,6 +116,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 150,
     xpReward: 30,
     category: "fun",
+    goal: 50,
+    progressType: "junk",
   },
   {
     id: "junk_hoarder",
@@ -111,6 +127,54 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 400,
     xpReward: 80,
     category: "fun",
+    goal: 200,
+    progressType: "junk",
+  },
+
+  // ── Collection ─────────────────────────────────────────────────────────────
+  {
+    id: "collector_25",
+    name: "Budding Collector",
+    description: "Catch 25% of all fish species.",
+    emoji: "📗",
+    coinReward: 5000,
+    xpReward: 500,
+    category: "catches",
+    goal: 25,
+    progressType: "collection",
+  },
+  {
+    id: "collector_50",
+    name: "Naturalist",
+    description: "Catch 50% of all fish species.",
+    emoji: "📘",
+    coinReward: 25000,
+    xpReward: 1500,
+    category: "catches",
+    goal: 50,
+    progressType: "collection",
+  },
+  {
+    id: "collector_75",
+    name: "Field Expert",
+    description: "Catch 75% of all fish species.",
+    emoji: "📙",
+    coinReward: 100000,
+    xpReward: 5000,
+    category: "catches",
+    goal: 75,
+    progressType: "collection",
+  },
+  {
+    id: "collector_100",
+    name: "Encyclopedist",
+    description: "Catch every fish species in the game.",
+    emoji: "📕",
+    coinReward: 500000,
+    xpReward: 20000,
+    category: "catches",
+    goal: 100,
+    progressType: "collection",
   },
 
   // ── Economy ────────────────────────────────────────────────────────────────
@@ -122,6 +186,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 100,
     xpReward: 20,
     category: "economy",
+    goal: 1000,
+    progressType: "coins",
   },
   {
     id: "earn_10000",
@@ -131,6 +197,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 500,
     xpReward: 100,
     category: "economy",
+    goal: 10000,
+    progressType: "coins",
   },
   {
     id: "first_market_sale",
@@ -198,6 +266,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 150,
     xpReward: 30,
     category: "catches",
+    goal: 3,
+    progressType: "streak",
   },
   {
     id: "streak_7",
@@ -207,6 +277,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 500,
     xpReward: 100,
     category: "catches",
+    goal: 7,
+    progressType: "streak",
   },
   {
     id: "streak_30",
@@ -216,6 +288,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 3000,
     xpReward: 500,
     category: "catches",
+    goal: 30,
+    progressType: "streak",
   },
 
   // ── Social ─────────────────────────────────────────────────────────────────
@@ -236,6 +310,8 @@ export const achievementDefs: AchievementDef[] = [
     coinReward: 400,
     xpReward: 80,
     category: "social",
+    goal: 10,
+    progressType: "steals",
   },
 ];
 

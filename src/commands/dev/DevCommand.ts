@@ -9,6 +9,15 @@ import { addItem, getInventory } from "@/modules/fishing/inventory";
 import { getUserPets } from "@/modules/fishing/pets";
 import { addBuff, getActiveBuffs } from "@/modules/fishing/buffs";
 import {
+  banUser,
+  timeoutUser,
+  unrestrictUser,
+  getReportsForUser,
+  parseDuration,
+  formatDuration,
+  isUserRestricted,
+} from "@/modules/moderation";
+import {
   getActiveEvent,
   activateEvent,
   stopEvent,
@@ -348,6 +357,11 @@ export default {
     "/dev event-start <event>",
     "/dev event-stop",
     "/dev event-list",
+    "/dev ban <user> [reason]",
+    "/dev timeout <user> <duration> [reason]",
+    "/dev unban <user_id>",
+    "/dev mod-info <user_id>",
+    "/dev reports <user_id>",
   ],
   options: [
     // ── Economy ──
@@ -661,6 +675,90 @@ export default {
         },
       ],
     },
+    // ── Moderation ──
+    {
+      name: "ban",
+      description: "Permanently ban a user from the bot.",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "user",
+          description: "User to ban.",
+          type: ApplicationCommandOptionType.User,
+          required: true,
+        },
+        {
+          name: "reason",
+          description: "Reason for the ban.",
+          type: ApplicationCommandOptionType.String,
+          required: false,
+        },
+      ],
+    },
+    {
+      name: "timeout",
+      description: "Temporarily restrict a user (e.g. 10m, 2h, 1d, 1w).",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "user",
+          description: "User to time out.",
+          type: ApplicationCommandOptionType.User,
+          required: true,
+        },
+        {
+          name: "duration",
+          description: "Duration: 30s · 10m · 2h · 1d · 1w",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+        },
+        {
+          name: "reason",
+          description: "Reason for the timeout.",
+          type: ApplicationCommandOptionType.String,
+          required: false,
+        },
+      ],
+    },
+    {
+      name: "unban",
+      description: "Remove an active ban or timeout from a user.",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "user_id",
+          description: "User ID to unban/untimeout.",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: "mod-info",
+      description: "Check if a user is currently restricted.",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "user_id",
+          description: "User ID to check.",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+        },
+      ],
+    },
+    {
+      name: "reports",
+      description: "View reports filed against a user.",
+      type: ApplicationCommandOptionType.Subcommand,
+      options: [
+        {
+          name: "user_id",
+          description: "User ID to check.",
+          type: ApplicationCommandOptionType.String,
+          required: true,
+        },
+      ],
+    },
   ],
 
   autocomplete: async ({ ctx }) => {
@@ -825,6 +923,90 @@ export default {
           .title("🎪 All Events")
           .text(lines.join("\n\n"))
           .footer(`${eventsList.length} events available`)
+          .build() as any,
+      );
+    }
+
+    // ── unban ────────────────────────────────────────────────────────────
+    if (sub === "unban") {
+      const userId = args.getString("user_id", true).trim();
+      const removed = await unrestrictUser(userId);
+      if (!removed) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} No active ban or timeout found for \`${userId}\`.`,
+        });
+      }
+      return ctx.editReply(
+        ui()
+          .color(config.colors.success)
+          .title(`${config.emojis.tick} Restriction Removed`)
+          .body(`Removed active ban/timeout for \`${userId}\`.`)
+          .build() as any,
+      );
+    }
+
+    // ── mod-info ─────────────────────────────────────────────────────────
+    if (sub === "mod-info") {
+      const userId = args.getString("user_id", true).trim();
+      const status = await isUserRestricted(userId);
+      if (!status.restricted) {
+        return ctx.editReply(
+          ui()
+            .color(config.colors.success)
+            .title("No Restriction")
+            .body(`\`${userId}\` has no active ban or timeout.`)
+            .build() as any,
+        );
+      }
+      const lines = [
+        `**Type:** ${status.type === "ban" ? "Permanent Ban" : "Timeout"}`,
+        status.reason ? `**Reason:** ${status.reason}` : null,
+        status.expiresAt
+          ? `**Expires:** <t:${Math.floor(status.expiresAt.getTime() / 1000)}:R>`
+          : null,
+      ].filter(Boolean);
+      return ctx.editReply(
+        ui()
+          .color(config.colors.error)
+          .title(`${config.emojis.mod} Restricted — \`${userId}\``)
+          .body(lines.join("\n"))
+          .build() as any,
+      );
+    }
+
+    // ── reports ──────────────────────────────────────────────────────────
+    if (sub === "reports") {
+      const userId = args.getString("user_id", true).trim();
+      const reports = await getReportsForUser(userId);
+      if (!reports.length) {
+        return ctx.editReply(
+          ui()
+            .color(config.colors.success)
+            .title("No Reports")
+            .body(`No reports found for \`${userId}\`.`)
+            .build() as any,
+        );
+      }
+      const lines = reports.slice(0, 10).map((r, i) => {
+        const ts = Math.floor(new Date(r.createdAt).getTime() / 1000);
+        return [
+          `**${i + 1}.** <t:${ts}:d> · [${r.status.toUpperCase()}]`,
+          `Reporter: \`${r.reporterId}\``,
+          `Reason: ${r.reason}`,
+          r.evidence ? `Evidence: ${r.evidence}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      });
+      const header =
+        reports.length > 10
+          ? `Showing 10 of **${reports.length}** reports for \`${userId}\``
+          : `**${reports.length}** report${reports.length === 1 ? "" : "s"} for \`${userId}\``;
+      return ctx.editReply(
+        ui()
+          .color(config.colors.warn)
+          .title(`📋 Reports — \`${userId}\``)
+          .body([header, "", ...lines].join("\n"))
           .build() as any,
       );
     }
@@ -1330,5 +1512,44 @@ export default {
           .build() as any,
       );
     }
+
+    // ── ban ──────────────────────────────────────────────────────────────
+    if (sub === "ban") {
+      const reason = args.getString("reason") ?? undefined;
+      await banUser(target.id, ctx.user.id, reason);
+      return ctx.editReply(
+        ui()
+          .color(config.colors.error)
+          .title(`${config.emojis.mod} User Banned`)
+          .body(
+            `**${target.username}** (\`${target.id}\`) has been permanently banned.${reason ? `\n**Reason:** ${reason}` : ""}`,
+          )
+          .build() as any,
+      );
+    }
+
+    // ── timeout ──────────────────────────────────────────────────────────
+    if (sub === "timeout") {
+      const durationStr = args.getString("duration", true);
+      const reason = args.getString("reason") ?? undefined;
+      const ms = parseDuration(durationStr);
+      if (!ms) {
+        return ctx.editReply({
+          content: `${config.emojis.cross} Invalid duration. Use \`30s\`, \`10m\`, \`2h\`, \`1d\`, or \`1w\`.`,
+        });
+      }
+      const expiresAt = new Date(Date.now() + ms);
+      await timeoutUser(target.id, ctx.user.id, ms, reason);
+      return ctx.editReply(
+        ui()
+          .color(config.colors.warn)
+          .title(`${config.emojis.mod} User Timed Out`)
+          .body(
+            `**${target.username}** (\`${target.id}\`) timed out for **${formatDuration(ms)}**.\nExpires: <t:${Math.floor(expiresAt.getTime() / 1000)}:R>${reason ? `\n**Reason:** ${reason}` : ""}`,
+          )
+          .build() as any,
+      );
+    }
+
   },
 } as Command;

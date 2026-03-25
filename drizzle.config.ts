@@ -5,6 +5,7 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./migrations",
   dialect: "postgresql",
+  schemaFilter: ["bot"],
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
