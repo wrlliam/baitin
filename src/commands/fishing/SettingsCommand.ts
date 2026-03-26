@@ -91,6 +91,14 @@ export default {
               .setStyle(p.hutNotifications ? ButtonStyle.Danger : ButtonStyle.Success),
           )
           .divider()
+          .section(
+            `📅 **Daily Reminders**\n${p.dailyReminders ? "On — you'll receive a DM when your daily reward is available." : "Off — no daily reminder DMs."}`,
+            new ButtonBuilder()
+              .setCustomId(`settings:toggle:dailyreminder:${ctx.user.id}`)
+              .setLabel(p.dailyReminders ? "🔕 Turn Off" : "🔔 Turn On")
+              .setStyle(p.dailyReminders ? ButtonStyle.Danger : ButtonStyle.Success),
+          )
+          .divider()
           .text(
             `🎪 **Event Announcements** — Controlled by server admins with \`/setup event-channel\``,
           )
@@ -123,6 +131,17 @@ export default {
           await db
             .update(fishingProfile)
             .set({ hutNotifications: !current.hutNotifications })
+            .where(eq(fishingProfile.userId, ctx.user.id));
+          const updated = await getOrCreateProfile(ctx.user.id);
+          await i.update(buildPanel(updated) as any);
+          return;
+        }
+
+        if (i.customId === `settings:toggle:dailyreminder:${ctx.user.id}`) {
+          const current = await getOrCreateProfile(ctx.user.id);
+          await db
+            .update(fishingProfile)
+            .set({ dailyReminders: !current.dailyReminders })
             .where(eq(fishingProfile.userId, ctx.user.id));
           const updated = await getOrCreateProfile(ctx.user.id);
           await i.update(buildPanel(updated) as any);

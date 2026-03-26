@@ -6,6 +6,7 @@ import { startEventScheduler, getActiveEvent } from "../modules/fishing/events";
 import { checkScheduledEvents } from "../modules/fishing/events";
 import { runHutCron } from "../modules/fishing/hut";
 import { settleExpiredAuctions } from "../modules/fishing/market";
+import { runDailyReminderCron } from "../modules/fishing/dailyReminder";
 import { recordStartupGuilds } from "./GuildCreateEvent";
 import config from "@/config";
 
@@ -65,5 +66,8 @@ export default {
 
     // Scheduled events (Morning Rush) every 1 minute
     setInterval(async () => { try { await checkScheduledEvents(app as unknown as Client); } catch {} }, 60 * 1000);
+
+    // Daily reminder DMs every hour
+    setInterval(async () => { try { await runDailyReminderCron(app as unknown as Client); } catch {} }, 60 * 60 * 1000);
   },
 } as Event<keyof ClientEvents>;

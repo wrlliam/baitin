@@ -188,7 +188,7 @@ export default {
       ...payload,
       withResponse: true,
     } as any);
-    const reply = resource!.message!;
+    const reply = resource?.message ?? await ctx.fetchReply();
 
     const collector = reply.createMessageComponentCollector({
       componentType: ComponentType.Button,
@@ -222,17 +222,12 @@ export default {
     });
 
     collector.on("end", async () => {
-      const disabledTabRow =
-        new ActionRowBuilder<ButtonBuilder>().addComponents(
-          CATEGORY_ORDER.map((key) =>
-            new ButtonBuilder()
-              .setCustomId(`help:tab:${key}`)
-              .setLabel(CATEGORY_META[key].label)
-              .setStyle(ButtonStyle.Secondary)
-              .setDisabled(true),
-          ),
-        );
-      await reply.edit({ components: [disabledTabRow] }).catch(() => {});
+      const expiredPayload = ui()
+        .color(config.colors.default)
+        .title(`${CATEGORY_META["general"].emoji} Command Center`)
+        .text("This menu has expired. Run \`/help\` again.")
+        .build();
+      await reply.edit(expiredPayload as any).catch(() => {});
     });
   },
 } as Command;

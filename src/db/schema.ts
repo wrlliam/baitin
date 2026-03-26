@@ -49,6 +49,7 @@ export const fishingProfile = botSchema.table("fishing_profile", {
   hutNotifications: boolean("hut_notifications").default(true).notNull(),
   catchAlerts: boolean("catch_alerts").default(false).notNull(),
   marketAlerts: boolean("market_alerts").default(false).notNull(),
+  dailyReminders: boolean("daily_reminders").default(false).notNull(),
   language: text("language").default("en").notNull(),
   gems: integer("gems").default(0).notNull(),
   reputation: integer("reputation").default(0).notNull(),
