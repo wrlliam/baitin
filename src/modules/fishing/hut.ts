@@ -51,9 +51,20 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
   const elapsedMinutes = elapsedMs / (60 * 1000);
 
   let catches = Math.floor(elapsedMinutes / minutesPerCatch);
-  catches = Math.min(catches, 24, maxItems);
+  catches = Math.min(catches, 24);
 
   if (catches <= 0) return { items: [], total: 0, autoSoldCoins: 0, autoSoldCount: 0 };
+
+  // Check existing inventory and cap new catches so total doesn't exceed maxItems
+  const existingInvRows = await db.select().from(hutInventory).where(eq(hutInventory.hutId, hutData.id));
+  const existingCount = existingInvRows.reduce((s, r) => s + r.quantity, 0);
+  const availableSlots = Math.max(0, maxItems - existingCount);
+  const overflowMode = hutData.overflowMode ?? "none";
+  if (overflowMode === "none") {
+    // Without overflow handling, hard cap at available slots
+    catches = Math.min(catches, availableSlots);
+    if (catches <= 0) return { items: [], total: 0, autoSoldCoins: 0, autoSoldCount: 0 };
+  }
 
   // Roll simplified catches
   const caughtItems: Map<string, { id: string; name: string; emoji: string; quantity: number }> = new Map();
@@ -99,18 +110,16 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
     await db.update(hut).set({ rodDurability: currentRodDurability }).where(eq(hut.id, hutData.id));
   }
 
-  // Check existing inventory count for auto-collect overflow
+  // Handle overflow based on overflow mode
   let autoSoldCoins = 0;
   let autoSoldCount = 0;
 
-  if (hutData.autoCollect) {
-    const existingInv = await db.select().from(hutInventory).where(eq(hutInventory.hutId, hutData.id));
-    const existingTotal = existingInv.reduce((s, r) => s + r.quantity, 0);
+  if (overflowMode === "sell") {
+    // Auto-sell cheapest NEW catches that exceed capacity
     const newTotal = Array.from(caughtItems.values()).reduce((s, i) => s + i.quantity, 0);
 
-    if (existingTotal + newTotal > maxItems) {
-      const overflow = existingTotal + newTotal - maxItems;
-      // Auto-sell the lowest-value catches first
+    if (existingCount + newTotal > maxItems) {
+      const overflow = existingCount + newTotal - maxItems;
       const sorted = Array.from(caughtItems.entries()).sort((a, b) => {
         const aItem = allItems.get(a[0]);
         const bItem = allItems.get(b[0]);
@@ -129,6 +138,86 @@ export async function collectHut(userId: string): Promise<{ items: { id: string;
         data.quantity -= sellQty;
         toSell -= sellQty;
         if (data.quantity <= 0) caughtItems.delete(itemId);
+      }
+
+      if (autoSoldCoins > 0) {
+        await addCoins(userId, autoSoldCoins);
+      }
+    }
+  } else if (overflowMode === "replace") {
+    // Replace cheapest items (existing or new) — keep the most valuable ones
+    const newTotal = Array.from(caughtItems.values()).reduce((s, i) => s + i.quantity, 0);
+
+    if (existingCount + newTotal > maxItems) {
+      // Build a combined pool of all items (existing + new), flattened to individual units
+      type PoolItem = { itemId: string; price: number; source: "existing" | "new" };
+      const pool: PoolItem[] = [];
+
+      for (const row of existingInvRows) {
+        const item = allItems.get(row.itemId);
+        const price = item?.price ?? 0;
+        for (let i = 0; i < row.quantity; i++) {
+          pool.push({ itemId: row.itemId, price, source: "existing" });
+        }
+      }
+
+      for (const [itemId, data] of caughtItems) {
+        const item = allItems.get(itemId);
+        const price = item?.price ?? 0;
+        for (let i = 0; i < data.quantity; i++) {
+          pool.push({ itemId, price, source: "new" });
+        }
+      }
+
+      // Sort by price descending — keep the most valuable items
+      pool.sort((a, b) => b.price - a.price);
+
+      const kept = pool.slice(0, maxItems);
+      const sold = pool.slice(maxItems);
+
+      // Calculate coins from sold items
+      for (const item of sold) {
+        autoSoldCoins += Math.floor(item.price * config.fishing.sellPriceMultiplier);
+        autoSoldCount++;
+      }
+
+      // Determine what existing items to remove (sold existing items)
+      const existingSoldCounts = new Map<string, number>();
+      for (const item of sold) {
+        if (item.source === "existing") {
+          existingSoldCounts.set(item.itemId, (existingSoldCounts.get(item.itemId) ?? 0) + 1);
+        }
+      }
+
+      // Update existing inventory rows that had items sold
+      for (const [itemId, sellQty] of existingSoldCounts) {
+        const row = existingInvRows.find((r) => r.itemId === itemId);
+        if (!row) continue;
+        if (sellQty >= row.quantity) {
+          // Delete entire row
+          await db.delete(hutInventory).where(eq(hutInventory.id, row.id));
+        } else {
+          // Reduce quantity
+          await db.update(hutInventory).set({ quantity: row.quantity - sellQty }).where(eq(hutInventory.id, row.id));
+        }
+      }
+
+      // Recalculate new catch quantities (only keep what survived)
+      const newKeptCounts = new Map<string, number>();
+      for (const item of kept) {
+        if (item.source === "new") {
+          newKeptCounts.set(item.itemId, (newKeptCounts.get(item.itemId) ?? 0) + 1);
+        }
+      }
+
+      // Update caughtItems to only reflect what we're keeping
+      for (const [itemId, data] of caughtItems) {
+        const keptQty = newKeptCounts.get(itemId) ?? 0;
+        if (keptQty <= 0) {
+          caughtItems.delete(itemId);
+        } else {
+          data.quantity = keptQty;
+        }
       }
 
       if (autoSoldCoins > 0) {

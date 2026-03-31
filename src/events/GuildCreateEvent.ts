@@ -69,20 +69,20 @@ export default {
       ])
       .build({ rows: [row] });
 
-    const channel = guild.channels.cache.filter(
+    // Ensure the bot's own member is cached (may not be on fresh guild join)
+    const botMember =
+      guild.members.cache.get(app.user!.id) ??
+      (await guild.members.fetchMe().catch(() => null));
+    if (!botMember) return;
+
+    const channel = guild.channels.cache.find(
       (f) =>
         f.type === ChannelType.GuildText &&
-        f
-          .permissionsFor(
-            guild.members.cache.find(
-              (f) => f.id === app.user?.id,
-            ) as GuildMember,
-          )
-          .has("SendMessages"),
+        f.permissionsFor(botMember)?.has("SendMessages"),
     );
 
-    if (channel.first()?.isSendable()) {
-      (channel.first() as TextChannel).send(msg);
+    if (channel?.isSendable()) {
+      (channel as TextChannel).send(msg);
     }
   },
 } as Event<keyof ClientEvents>;

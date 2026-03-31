@@ -25,6 +25,7 @@ const CATEGORY_META: Record<
 };
 
 const CATEGORY_ORDER: CategoryKey[] = ["general", "economy", "fishing", "misc"];
+const CMDS_PER_PAGE = 7;
 
 function getCategories(client: CoreBot) {
   const cats: Record<CategoryKey, { name: string; desc: string }[]> = {
@@ -49,23 +50,13 @@ function getCategories(client: CoreBot) {
   return cats;
 }
 
-function buildTabRow(activeTab: CategoryKey): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    CATEGORY_ORDER.map((key) =>
-      new ButtonBuilder()
-        .setCustomId(`help:tab:${key}`)
-        .setLabel(CATEGORY_META[key].label)
-        .setStyle(
-          key === activeTab ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        ),
-    ),
-  );
-}
-
-function buildPayload(activeTab: CategoryKey, client: CoreBot) {
+function buildPayload(activeTab: CategoryKey, page: number, client: CoreBot) {
   const cats = getCategories(client);
   const meta = CATEGORY_META[activeTab];
   const commands = cats[activeTab];
+  const totalPages = Math.max(1, Math.ceil(commands.length / CMDS_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageCommands = commands.slice(safePage * CMDS_PER_PAGE, (safePage + 1) * CMDS_PER_PAGE);
 
   const builder = ui()
     .color(config.colors.default)
@@ -75,16 +66,50 @@ function buildPayload(activeTab: CategoryKey, client: CoreBot) {
     )
     .divider();
 
-  for (const cmd of commands) {
+  for (const cmd of pageCommands) {
     builder.section(
       `**/${cmd.name}**\n${cmd.desc}`,
       btn(`/${cmd.name}`, `help:cmd:${cmd.name}`, ButtonStyle.Secondary),
     );
   }
 
-  builder.footer("Baitin • /help [command] for detailed info");
+  builder.footer(
+    totalPages > 1
+      ? `Baitin • /help [command] for detailed info • Page ${safePage + 1}/${totalPages}`
+      : "Baitin • /help [command] for detailed info",
+  );
 
-  return builder.build({ rows: [buildTabRow(activeTab)] });
+  // Build button rows
+  const tabRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    CATEGORY_ORDER.map((key) =>
+      new ButtonBuilder()
+        .setCustomId(`help:tab:${key}`)
+        .setLabel(CATEGORY_META[key].label)
+        .setStyle(
+          key === activeTab ? ButtonStyle.Primary : ButtonStyle.Secondary,
+        ),
+    ),
+  );
+
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [tabRow];
+
+  if (totalPages > 1) {
+    const pageRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("help:page:prev")
+        .setLabel("◀ Prev")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(safePage === 0),
+      new ButtonBuilder()
+        .setCustomId("help:page:next")
+        .setLabel("Next ▶")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(safePage >= totalPages - 1),
+    );
+    rows.push(pageRow);
+  }
+
+  return { payload: builder.build({ rows }), page: safePage, totalPages };
 }
 
 export default {
@@ -181,8 +206,9 @@ export default {
     }
 
     // Command Center
-    const activeTab: CategoryKey = "general";
-    const payload = buildPayload(activeTab, client);
+    let activeTab: CategoryKey = "general";
+    let currentPage = 0;
+    const { payload } = buildPayload(activeTab, currentPage, client);
 
     const { resource } = await ctx.reply({
       ...payload,
@@ -200,8 +226,16 @@ export default {
       const [, action, value] = i.customId.split(":");
 
       if (action === "tab") {
-        const tab = value as CategoryKey;
-        await i.update(buildPayload(tab, client) as any);
+        activeTab = value as CategoryKey;
+        currentPage = 0;
+        const { payload } = buildPayload(activeTab, currentPage, client);
+        await i.update(payload as any);
+      } else if (action === "page") {
+        if (value === "prev") currentPage = Math.max(0, currentPage - 1);
+        else currentPage++;
+        const { payload, page } = buildPayload(activeTab, currentPage, client);
+        currentPage = page;
+        await i.update(payload as any);
       } else if (action === "cmd") {
         const command = client.commands.get(value);
         if (!command) return i.deferUpdate();

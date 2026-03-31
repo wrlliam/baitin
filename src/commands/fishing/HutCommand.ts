@@ -102,7 +102,7 @@ async function buildHutMainPayload(userId: string) {
     .body(
       `**Speed:** Lv ${hutData.speedLevel} — ${speedUpgrade?.speedMinutes ?? 60} min/catch\n` +
       `**Luck:** Lv ${hutData.luckLevel} — +${luckPct}% bonus\n` +
-      `**Inventory:** ${hutInv.length} / ${invUpgrade?.capacity ?? 12} items`,
+      `**Inventory:** ${hutInv.reduce((s, r) => s + r.quantity, 0)} / ${invUpgrade?.capacity ?? 12} items`,
     )
     .divider()
     .body(
@@ -198,12 +198,27 @@ async function buildHutConfigurePayload(userId: string) {
     ? `${pet.emoji} ${pet.instanceName ?? pet.name} (Lv ${pet.petLevel})`
     : "None";
 
-  const autoCollectLabel = hutData.autoCollect ? "✅ Auto-Collect: ON" : "❌ Auto-Collect: OFF";
+  const overflowMode = hutData.overflowMode ?? "none";
+  const overflowLabels: Record<string, string> = {
+    none: "Off — stops catching when full",
+    sell: "Auto-Sell — overflow catches are sold",
+    replace: "Replace Cheapest — swaps cheap items for valuable catches",
+  };
+  const overflowButtonLabels: Record<string, string> = {
+    none: "❌ Overflow: Off",
+    sell: "💰 Overflow: Auto-Sell",
+    replace: "🔄 Overflow: Replace Cheapest",
+  };
+  const overflowButtonStyles: Record<string, ButtonStyle> = {
+    none: ButtonStyle.Secondary,
+    sell: ButtonStyle.Success,
+    replace: ButtonStyle.Primary,
+  };
 
   const builder = ui()
     .color(config.colors.default)
     .title(`${config.emojis.configure} Configure Hut`)
-    .body(`**Rod:** ${rodDisplay}\n**Pet:** ${petDisplay}\n**Auto-Collect:** ${hutData.autoCollect ? "ON — overflow items are auto-sold" : "OFF"}`);
+    .body(`**Rod:** ${rodDisplay}\n**Pet:** ${petDisplay}\n**Overflow:** ${overflowLabels[overflowMode]}`);
 
   const configRows: ActionRowBuilder<any>[] = [];
 
@@ -250,9 +265,9 @@ async function buildHutConfigurePayload(userId: string) {
       .setStyle(ButtonStyle.Danger)
       .setDisabled(!hutData.petId),
     new ButtonBuilder()
-      .setCustomId(`hut:autocollect:${userId}`)
-      .setLabel(autoCollectLabel)
-      .setStyle(hutData.autoCollect ? ButtonStyle.Success : ButtonStyle.Secondary),
+      .setCustomId(`hut:overflowmode:${userId}`)
+      .setLabel(overflowButtonLabels[overflowMode])
+      .setStyle(overflowButtonStyles[overflowMode]),
     new ButtonBuilder()
       .setCustomId(`hut:back:${userId}`)
       .setLabel("◄ Back")
@@ -640,11 +655,13 @@ export default {
           return;
         }
 
-        // ── Toggle auto-collect ───────────────────────────────────────────
-        if (id === `hut:autocollect:${ctx.user.id}`) {
+        // ── Cycle overflow mode ───────────────────────────────────────────
+        if (id === `hut:overflowmode:${ctx.user.id}`) {
           const hutData = await getHut(ctx.user.id);
           if (hutData) {
-            await db.update(hut).set({ autoCollect: !hutData.autoCollect }).where(eq(hut.userId, ctx.user.id));
+            const cycle: Record<string, string> = { none: "sell", sell: "replace", replace: "none" };
+            const nextMode = cycle[hutData.overflowMode ?? "none"] ?? "none";
+            await db.update(hut).set({ overflowMode: nextMode }).where(eq(hut.userId, ctx.user.id));
           }
           const payload = await buildHutConfigurePayload(ctx.user.id);
           if (payload) await interaction.update(payload as any);

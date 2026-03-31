@@ -97,6 +97,7 @@ export const hut = botSchema.table("hut", {
   inventoryLevel: integer("inventory_level").default(1).notNull(),
   petId: text("pet_id"),
   autoCollect: boolean("auto_collect").default(false).notNull(),
+  overflowMode: text("overflow_mode").default("none").notNull(),
   lastCollectedAt: timestamp("last_collected_at", {
     withTimezone: true,
   }).defaultNow(),
